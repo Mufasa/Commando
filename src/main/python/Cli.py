@@ -8,7 +8,8 @@ every method is a NOP, e.g.:
         def getFilePath(self): pass
         def isRecursive(self): pass
 
-This library was inspired by the JewelCli Java library at:
+This library was inspired by both Pythons built-in optparse module and the
+JewelCli Java library at:
      http://jewelcli.sourceforge.net/index.html
 
 The Cli library has the following features:
