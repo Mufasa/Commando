@@ -1,6 +1,7 @@
 from nose.tools import *
 
 from Cli import Cli
+from Cli import positional
 
 PURPOSE = 'This is where you would describe the purpose of the program using these options'
 
@@ -17,6 +18,14 @@ class MyOptions(object):
       'specific help on this option'
       pass
 
+   @positional(1)
+   def getArgumentA(self):
+      'help for argumentA'
+      pass
+
+   @positional(2)
+   def getArgumentB(self): pass
+
 class TestCliWithCustomisedHelp(object):
    def testSpecifiedHelpStringsAppearInHelpText(self):
       self.__checkHelpText(Cli(MyOptions).helpText, 'TestCliWithCustomisedHelp.py')
@@ -28,7 +37,17 @@ class TestCliWithCustomisedHelp(object):
       self.__checkHelpText(Cli(MyOptions, purpose=PURPOSE).helpText, 'TestCliWithCustomisedHelp.py', PURPOSE)
 
    def __checkHelpText(self, helpText, prog, purpose=None):
-      assert_true(helpText.find('Usage: %s [--optionWithShortName, -o value] [--optionWithDefaultList value1 ...] [--optionWithDefaultAndShortName, -t value] [--deleteFiles] [--optionWithDefault value] [--booleanOptionWithShortName, -i] [--simpleOption value]\n' % prog) != -1)
+      helpLines = helpText.splitlines()
+      usage = helpLines[0]
+      assert_true(usage.startswith('Usage: %s' % prog))
+      assert_true(usage.find('[--deleteFiles]') != -1)
+      assert_true(usage.find('[--simpleOption value]') != -1)
+      assert_true(usage.find('[--optionWithDefault value]') != -1)
+      assert_true(usage.find('[--optionWithDefaultList value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithShortName, -o value]') != -1)
+      assert_true(usage.find('[--booleanOptionWithShortName, -i]') != -1)
+      assert_true(usage.find('[--optionWithDefaultAndShortName, -t value]') != -1)
+      assert_true(usage.endswith('argumentA argumentB\n') != -1)
 
       if purpose:
          assert_true(helpText.find('%s\n' % PURPOSE) != -1)
@@ -43,6 +62,8 @@ class TestCliWithCustomisedHelp(object):
       assert_true(helpText.find('--optionWithShortName,           -o value') != -1)
       assert_true(helpText.find('--booleanOptionWithShortName,    -i                   (True if specified, otherwise False)') != -1)
       assert_true(helpText.find('--optionWithDefaultAndShortName, -t value             (default=\'999\')                      specific help on this option') != -1)
+      assert_true(helpText.find('argumentA                                                                                  help for argumentA') != -1)
+      assert_equals([arg.strip() for arg in helpLines[-1:]], ['argumentB'])
 
 if __name__ == '__main__':
    import sys, inspect, nose

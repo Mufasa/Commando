@@ -25,6 +25,7 @@ The Cli library has the following features:
           - String (default)
           - Digits-only String
           - Numeric (allows decimal, hexadecimal, binary, octal integers)
+     - Ability to specify positional arguments
 
 Every option is defined by a method whose name either starts with "get" or "is".
 Methods that start with "is" represent boolean options. "is" methods will return
@@ -45,6 +46,7 @@ The library is best documented by examining its test cases which are split by fe
      - TestCliWithDefaultHelp.py           This shows to access the default help text
      - TestCliWithCustomisedHelp.py        This shows how to enhance the help text
      - TestCliWithValueFormatter.py        This shows how the option values can be formatted to suit your needs
+     - TestCliWithPositional.py            This shows how to specify positional arguments
      
 Typical Usage
 =============
@@ -88,7 +90,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.0.1"
+__VERSION__ = __version__ = "1.1.0"
 
 import inspect
 import os
@@ -154,6 +156,22 @@ class CliParseError(CliError):
    def __init__(self, errorMessage):
       CliError.__init__(self, errorMessage)
 
+class positional(object):
+   def __init__(self, relativePosition):
+      self.__relativePosition = relativePosition
+
+   def __call__(self, f):
+      self.__f = f
+      return self
+
+   @property
+   def relativePosition(self):
+      return self.__relativePosition
+
+   @property
+   def wrappedMethod(self):
+      return self.__f
+
 class Cli(object):
    '''Provides access to command line arguments using the given
    "optionsClass" as a template for defining them.
@@ -162,8 +180,8 @@ class Cli(object):
    '''
    def __init__(self, optionsClass, prog=os.path.basename(sys.argv[0]), purpose=None):
       self.__optionsClass = optionsClass
-      self.__supportedOptions = Cli.__getSupportedOptions(optionsClass)
-      self.__helpText = Cli.__constructHelpText(prog, purpose, self.__supportedOptions)
+      self.__options, self.__positionalArguments = Cli.__getSupportedOptions(optionsClass)
+      self.__helpText = Cli.__constructHelpText(prog, purpose, self.__options, self.__positionalArguments)
 
    @classmethod
    def __getSupportedOptions(cls, optionsClass):
@@ -177,17 +195,37 @@ class Cli(object):
          if methodName.startswith('get') or methodName.startswith('is'):
             method = getattr(optionsClass, methodName)
             if callable(method):
+               if inspect.isclass(type(method)) and method.__class__.__name__ == 'positional':
+                  position = method.relativePosition
+                  method = method.wrappedMethod
+               else:
+                  position = None
                try:
                   methodArgs, varargs, varkw, defaults = inspect.getargspec(method) #@UnusedVariable
                except TypeError:
                   raise RuntimeError('Could not get argument specification for %r' % method)
-               if inspect.ismethod(method):
+               if inspect.ismethod(method) or position is not None:
                   methodArgs = methodArgs[1:]  # Skip 'self'
-               supportedOptions[methodName] = _OptionDescription(optionsClass, methodName, methodArgs, defaults, method.__doc__)
+               supportedOptions[methodName] = _OptionDescription(optionsClass, methodName, methodArgs, defaults, position, method.__doc__)
 
       cls.__validateShortNames(supportedOptions)
+      cls.__validatePositionalArguments(supportedOptions)
 
-      return supportedOptions
+      options = {}
+      positional = {}
+      for option in supportedOptions.values():
+         if option.hasPosition:
+            positional[option.position] = option
+         else:
+            options[option.methodName] = option
+
+      positions = positional.keys()[:]
+      positions.sort()
+      positionalArguments = []
+      for position in positions:
+         positionalArguments.append(positional[position])
+
+      return options, positionalArguments
 
    @classmethod
    def __validateShortNames(cls, supportedOptions):
@@ -197,21 +235,33 @@ class Cli(object):
       optionsWithShortNames = {}
       for option in supportedOptions.values():
          if option.hasShortName:
-            if optionsWithShortNames.has_key(option.shortName):
+            if type(option.shortName) != type(''):
+               raise CliParseError('Option %s has a non-string shortName' % option)
+            elif optionsWithShortNames.has_key(option.shortName):
                raise CliParseError('Option %s has a shortName that clashes with %s' % (option, optionsWithShortNames[option.shortName]))
             else:
                methodSuffix = option.shortName[0].upper() + option.shortName[1:]
                matchingLongNameOption = None
                if supportedOptions.has_key('is' + methodSuffix):
-                  matchingLongNameOption = supportedOptions.has_key('is' + methodSuffix)
+                  matchingLongNameOption = supportedOptions['is' + methodSuffix]
                elif supportedOptions.has_key('get' + methodSuffix):
-                  matchingLongNameOption = supportedOptions.has_key('get' + methodSuffix)
+                  matchingLongNameOption = supportedOptions['get' + methodSuffix]
                if matchingLongNameOption is not None:
                   raise CliParseError('Option %s has a shortName that clashes with the long name of %s' % (option, matchingLongNameOption))
                optionsWithShortNames[option.shortName] = option
 
    @classmethod
-   def __constructHelpText(cls, prog, purpose, supportedOptions):
+   def __validatePositionalArguments(cls, supportedOptions):
+      'Ensures all positional arguments have a unique position'
+      positionalArguments = {}
+      for option in supportedOptions.values():
+         if option.hasPosition:
+            if positionalArguments.has_key(option.position):
+               raise CliParseError('Positional argument %s has a position that clashes with %s' % (option, positionalArguments[option.position]))
+            positionalArguments[option.position] = option
+
+   @classmethod
+   def __constructHelpText(cls, prog, purpose, options, positionalArguments):
       'Constructs the help text from the given options'
       usage = []
       maxLongNameLength = 0
@@ -219,7 +269,7 @@ class Cli(object):
       maxValueLength = 0
       maxDefaultValueLength = 0
       containsBooleanOptions = False
-      for option in supportedOptions.values():
+      for option in options.values() + positionalArguments:
          helpTextComponents = option.helpTextComponents
          usage.append(helpTextComponents['usage'])
          maxLongNameLength = max(maxLongNameLength, len(helpTextComponents['longName']))
@@ -247,7 +297,7 @@ class Cli(object):
       if purpose:
          helpTextLines.append(purpose)
       helpTextLines.append('where:')
-      for option in supportedOptions.values():
+      for option in options.values() + positionalArguments:
          helpTextComponents = option.helpTextComponents
          if option.hasShortName:
             longName = helpTextComponents['longName'] + ', '
@@ -281,16 +331,17 @@ class Cli(object):
       If "args" is omitted, then the options are picked up from sys.argv[1:].
       '''
       if args is None:
-         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__supportedOptions, sys.argv[1:])
+         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, sys.argv[1:])
       else:
-         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__supportedOptions, args[:])
+         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, args[:])
 
 class _OptionDescription(object):
    'Representation of a single option'
-   def __init__(self, optionsClass, methodName, methodArgs, defaults, methodDocString):
+   def __init__(self, optionsClass, methodName, methodArgs, defaults, position, methodDocString):
       self.__optionsClass = optionsClass
       self.__methodName = methodName
       self.__defaults = defaults
+      self.__position = position
       self.__methodDocString = methodDocString
       self.__isBooleanMethod = methodName.startswith('is')
       self.__isMandatory = 'mandatory' in methodArgs
@@ -341,6 +392,20 @@ class _OptionDescription(object):
    def __validate(self, methodArgs, unrecognisedArgs, defaultsOffset):
       if len(unrecognisedArgs) > 0:
          raise CliParseError('Unrecognised arguments "%s" in %s' % (', '.join(unrecognisedArgs), self))
+
+      if self.__position is not None:
+         if self.__hasShortName:
+            raise CliParseError('Positional argument %s cannot have a "shortName"' % self)
+         elif self.__hasDefault:
+            raise CliParseError('Positional argument %s cannot have a "default"' % self)
+         elif self.__isMultiValued:
+            raise CliParseError('Positional argument %s cannot be marked as "multiValued"' % self)
+         elif self.__isMandatory:
+            raise CliParseError('Positional argument %s cannot be marked as "mandatory"' % self)
+         elif self.__minCount is not None:
+            raise CliParseError('Positional argument %s cannot have "min" specified' % self)
+         elif self.__maxCount is not None:
+            raise CliParseError('Positional argument %s cannot have "max" specified' % self)
 
       if self.__isBooleanMethod:
          if self.__hasDefault:
@@ -416,6 +481,14 @@ class _OptionDescription(object):
       return self.__name
 
    @property
+   def hasPosition(self):
+      return self.__position is not None
+
+   @property
+   def position(self):
+      return self.__position
+
+   @property
    def isMandatory(self):
       return self.__isMandatory
 
@@ -462,52 +535,58 @@ class _OptionDescription(object):
    def helpTextComponents(self):
       components = {}
 
-      longName = '--' + self.__name
-      components['longName'] = longName
-      usageText = longName
-
-      if self.hasShortName:
-         shortName = '-' + self.shortName
-         components['shortName'] = shortName
-         usageText += ', ' + shortName
-      else:
+      if self.hasPosition:
+         usageText = self.__name
+         components['longName'] = self.__name
          components['shortName'] = ''
-
-      if self.isBoolean:
          components['value'] = ''
       else:
-         if self.isMultiValued:
-            usageText += ' value1 ...'
-            if self.hasMinCount or self.hasMaxCount:
-               minCount = 1
-               endValues = ['value2']
-               if self.hasMinCount:
-                  minCount = self.minCount
-                  endValues = []
-                  if self.minCount == 1:
-                     startValues = ['valueMin1']
-                  elif self.minCount == 2:
-                     startValues = ['value1', 'valueMin2']
-                  else:
-                     startValues = ['value1', '...', 'valueMin%d' % (self.minCount,)]
-               else:
-                  startValues = ['value1']
-               if self.hasMaxCount:
-                  if self.maxCount == minCount:
-                     del startValues[-1]
-                     endValues = ['valueMinMax%d' % minCount]
-                  elif self.maxCount <= minCount + 1:
-                     endValues = ['valueMax%d' % (minCount + 1,)]
-                  else:
-                     endValues = ['...', 'valueMax%d' % self.maxCount]
-               else:
-                  endValues.append('...')
-               components['value'] = ' '.join(startValues + endValues)
-            else:
-               components['value'] = 'value1 value2 ...'
+         longName = '--' + self.__name
+         components['longName'] = longName
+         usageText = longName
+
+         if self.hasShortName:
+            shortName = '-' + self.shortName
+            components['shortName'] = shortName
+            usageText += ', ' + shortName
          else:
-            usageText += ' value'
-            components['value'] = 'value'
+            components['shortName'] = ''
+
+         if self.isBoolean:
+            components['value'] = ''
+         else:
+            if self.isMultiValued:
+               usageText += ' value1 ...'
+               if self.hasMinCount or self.hasMaxCount:
+                  minCount = 1
+                  endValues = ['value2']
+                  if self.hasMinCount:
+                     minCount = self.minCount
+                     endValues = []
+                     if self.minCount == 1:
+                        startValues = ['valueMin1']
+                     elif self.minCount == 2:
+                        startValues = ['value1', 'valueMin2']
+                     else:
+                        startValues = ['value1', '...', 'valueMin%d' % (self.minCount,)]
+                  else:
+                     startValues = ['value1']
+                  if self.hasMaxCount:
+                     if self.maxCount == minCount:
+                        del startValues[-1]
+                        endValues = ['valueMinMax%d' % minCount]
+                     elif self.maxCount <= minCount + 1:
+                        endValues = ['valueMax%d' % (minCount + 1,)]
+                     else:
+                        endValues = ['...', 'valueMax%d' % self.maxCount]
+                  else:
+                     endValues.append('...')
+                  components['value'] = ' '.join(startValues + endValues)
+               else:
+                  components['value'] = 'value1 value2 ...'
+            else:
+               usageText += ' value'
+               components['value'] = 'value'
 
       if self.hasDefault:
          components['default'] = self.default
@@ -519,7 +598,7 @@ class _OptionDescription(object):
       else:
          components['docString'] = ''
 
-      if self.isMandatory:
+      if self.isMandatory or self.hasPosition:
          components['usage'] = usageText
       else:
          components['usage'] = '[' + usageText + ']'
@@ -531,17 +610,21 @@ class _OptionDescription(object):
 
 class _ParsedOptions(object):
    'Parses the command line options'
-   def __init__(self, optionsClass, helpText, supportedOptions, args):
+   def __init__(self, optionsClass, helpText, options, positionalArguments, args):
       self.__optionsClass = optionsClass
       self.__helpText = helpText
-      self.__supportedOptions = supportedOptions
+      self.__options = options.copy()
+      for argument in positionalArguments:
+         self.__options[argument.methodName] = argument
 
-      context = _Context(optionsClass, helpText, supportedOptions)
+      context = _Context(optionsClass, helpText, options, positionalArguments)
       state = _StartState(context)
+      argsLeft = len(args)
       for arg in args:
-         state = state.process(arg)
+         argsLeft -= 1;
+         state = state.process(arg, argsLeft)
 
-      self.__options = context.validateOptions()
+      self.__parsedOptions = context.validateOptions()
 
    @property
    def helpText(self):
@@ -549,10 +632,10 @@ class _ParsedOptions(object):
       return self.__helpText
 
    def __getattr__(self, name):
-      if self.__supportedOptions.has_key(name):
-         optionDescription = self.__supportedOptions[name]
-         if self.__options.has_key(optionDescription.name):
-            return _Option(self.__optionsClass, optionDescription, self.__options[optionDescription.name])
+      if self.__options.has_key(name):
+         optionDescription = self.__options[name]
+         if self.__parsedOptions.has_key(optionDescription.name):
+            return _Option(self.__optionsClass, optionDescription, self.__parsedOptions[optionDescription.name])
          elif optionDescription.isBoolean:
             return _Option(self.__optionsClass, optionDescription, False)
          else:
@@ -562,29 +645,31 @@ class _ParsedOptions(object):
 
 class _Context(object):
    'Context used to hold state information while parsing the command line'
-   def __init__(self, optionsClass, helpText, supportedOptions):
+   def __init__(self, optionsClass, helpText, options, positionalArguments):
       self.__optionsClass = optionsClass
       self.__helpText = helpText
-      self.__supportedOptions = supportedOptions
+      self.__options = options
+      self.__positionalArguments = positionalArguments
+      self.__positionalArgumentValues = []
       self.__shortOptions = {}
 
-      for option in supportedOptions.values():
+      for option in options.values():
          if option.hasShortName:
             self.__shortOptions[option.shortName] = option.name
 
-      self.__options = {}
+      self.__parsedOptions = {}
 
    def addOption(self, optionName):
       if optionName == 'help':
          raise CliHelpError(self.__helpText)
 
       methodNameSuffix = optionName[0].upper() + optionName[1:]
-      if self.__supportedOptions.has_key('get' + methodNameSuffix):
-         self.__option = self.__supportedOptions['get' + methodNameSuffix]
-         self.__options[optionName] = []
-      elif self.__supportedOptions.has_key('is' + methodNameSuffix):
-         self.__option = self.__supportedOptions['is' + methodNameSuffix]
-         self.__options[optionName] = True
+      if self.__options.has_key('get' + methodNameSuffix):
+         self.__option = self.__options['get' + methodNameSuffix]
+         self.__parsedOptions[optionName] = []
+      elif self.__options.has_key('is' + methodNameSuffix):
+         self.__option = self.__options['is' + methodNameSuffix]
+         self.__parsedOptions[optionName] = True
       else:
          raise CliParseError('Unrecognised option --%s' % optionName)
 
@@ -601,42 +686,68 @@ class _Context(object):
       if self.__option.isBoolean:
          raise CliParseError('Boolean option --%s cannot be followed by a value.\nFound unexpected value "%s" after this option.' % (self.__option.name, value))
 
-      valueCount = len(self.__options[self.__option.name])
+      valueCount = len(self.__parsedOptions[self.__option.name])
       if self.__option.isMultiValued:
          if self.__option.hasMaxCount and valueCount == self.__option.maxCount:
             raise CliParseError('Multi-valued option --%s cannot have more than %d values' % (self.__option.name, self.__option.maxCount))
       elif valueCount > 0:
          raise CliParseError('Single-valued option --%s cannot have multiple values' % self.__option.name)
-      self.__options[self.__option.name].append(self.__option.formatValue(value))
+      self.__parsedOptions[self.__option.name].append(self.__option.formatValue(value))
+
+   @property
+   def numberOfPositionalArguments(self):
+      return len(self.__positionalArguments)
+
+   def addPositional(self, value):
+      option = self.__positionalArguments[len(self.__positionalArgumentValues)]
+      self.__positionalArgumentValues.append(option.formatValue(value))
 
    def validateOptions(self):
-      for optionName in self.__options.keys():
+      for optionName in self.__parsedOptions.keys():
          methodNameSuffix = optionName[0].upper() + optionName[1:]
-         if self.__supportedOptions.has_key('get' + methodNameSuffix):
-            option = self.__supportedOptions['get' + methodNameSuffix]
-            valueCount = len(self.__options[optionName])
+         if self.__options.has_key('get' + methodNameSuffix):
+            option = self.__options['get' + methodNameSuffix]
+            valueCount = len(self.__parsedOptions[optionName])
             if valueCount == 0:
                raise CliParseError('Missing value for option --%s' % optionName)
             elif option.isMultiValued:
                if option.hasMinCount and valueCount < option.minCount:
                   raise CliParseError('Multi-valued option --%s was given %d values - must have at least %d value(s)' % (optionName, valueCount, option.minCount))
 
-      for option in self.__supportedOptions.values():
-         if option.isMandatory and option.name not in self.__options:
+      for option in self.__options.values():
+         if option.isMandatory and option.name not in self.__parsedOptions:
             raise CliParseError('Missing mandatory option --%s' % option.name)
-         elif option.isMultiValued and option.hasMinCount and option.minCount > 0 and option.name not in self.__options:
+         elif option.isMultiValued and option.hasMinCount and option.minCount > 0 and option.name not in self.__parsedOptions:
             raise CliParseError('Multi-valued option --%s must be given with at least %d value(s)' % (option.name, option.minCount))
 
-      return self.__options
+      numberOfMissingPositionalArguments = len(self.__positionalArguments) - len(self.__positionalArgumentValues)
+      if numberOfMissingPositionalArguments > 1:
+         raise CliParseError('Missing values for positional arguments: %s' % [option.name for option in self.__positionalArguments[len(self.__positionalArgumentValues):]])
+      elif numberOfMissingPositionalArguments == 1:
+         raise CliParseError('Missing value for last positional argument: %s' % [option.name for option in self.__positionalArguments[len(self.__positionalArgumentValues):]])
+      else:
+         for index in range(0, len(self.__positionalArguments)):
+            option = self.__positionalArguments[index]
+            value = self.__positionalArgumentValues[index]
+            if option.isBoolean:
+               if value.lower() not in ['true', 'false']:
+                  raise CliParseError('Invalid boolean value "%s" for positional argument "%s". Must be "True" or "False" (case insensitive).' % (value, option.name))
+               self.__parsedOptions[option.name] = value == 'true'
+            else:
+               self.__parsedOptions[option.name] = value
+
+      return self.__parsedOptions
 
 class _StartState(object):
    'The initial state during parsing of the command line'
    def __init__(self, context):
       self.__context = context
 
-   def process(self, arg):
+   def process(self, arg, argsLeft):
       if arg.startswith('-'):
          return _OptionState(self.__context, arg)
+      elif argsLeft < self.__context.numberOfPositionalArguments:
+         return _PositionalState(self.__context, arg)
       else:
          raise CliParseError('Expected option beginning with "-" or "--" but found: ' + arg)
 
@@ -659,11 +770,26 @@ class _OptionState(object):
       else: # startswith '-'
          context.addShortOption(arg[1:])
 
-   def process(self, arg):
+   def process(self, arg, argsLeft):
       if arg.startswith('-'):
          return _OptionState(self.__context, arg)
+      elif argsLeft < self.__context.numberOfPositionalArguments:
+         return _PositionalState(self.__context, arg)
       else:
          self.__context.appendOptionValue(arg)
+         return self
+
+class _PositionalState(object):
+   'We are processing the positional arguments in this state'
+   def __init__(self, context, arg):
+      self.__context = context
+      context.addPositional(arg)
+
+   def process(self, arg, argsLeft):
+      if arg.startswith('-'):
+         raise CliParseError('Unexpected option "%s" found while processing positional arguments' % arg)
+      else:
+         self.__context.addPositional(arg)
          return self
 
 class _Option(object):

@@ -74,6 +74,7 @@ The Cli library has the following features:
           - String (default)
           - Digits-only String
           - Numeric (allows decimal, hexadecimal, binary, octal integers)
+     - Ability to specify positional arguments
 
 Every option is defined by a method whose name either starts with "get" or "is".
 Methods that start with "is" represent boolean options. "is" methods will return
@@ -94,6 +95,7 @@ The library is best documented by examining its test cases which are split by fe
      - TestCliWithDefaultHelp.py           This shows to access the default help text
      - TestCliWithCustomisedHelp.py        This shows how to enhance the help text
      - TestCliWithValueFormatter.py        This shows how the option values can be formatted to suit your needs
+     - TestCliWithPositional.py            This shows how to specify positional arguments
      
 Typical Usage
 =============
@@ -136,7 +138,3 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --outputFile,    -o value             (default='output.csv')               Output filename
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
-
-To Do
-=====
-- Add support for positional arguments (similar concept to Pythons built-in optparse module)

@@ -7,3 +7,8 @@ Cli v1.0.1
 1. Added validation to disallow defaults for mandatory options
 2. Added ability to specify the min/max number of values allowed for a
 multi-valued option
+
+Cli v1.1.0
+==========
+1. Added ability to specify positional arguments
+2. Added tests to cover invalid shortName specifications

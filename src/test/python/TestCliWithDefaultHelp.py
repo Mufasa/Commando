@@ -2,6 +2,7 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliHelpError
+from Cli import positional
 
 class MyOptions(object):
    def isDeleteFiles(self): pass
@@ -24,6 +25,11 @@ class MyOptions(object):
    def getOptionWithMin3Max3(self, multiValued, min=3, max=3): pass
    def getOptionWithMin3Max4(self, multiValued, min=3, max=4): pass
    def getOptionWithMin3Max5(self, multiValued, min=3, max=5): pass
+
+   @positional(1)
+   def getArgumentA(self): pass
+   @positional(2)
+   def getArgumentB(self): pass
 
 class TestCliWithDefaultHelp(object):
    def testCanRequestHelpTextFromCliInstance(self):
@@ -57,8 +63,31 @@ class TestCliWithDefaultHelp(object):
          self.__checkHelpText(e.helpText)
 
    def __checkHelpText(self, helpText):
-      print helpText
-      assert_true(helpText.startswith('Usage: TestCliWithDefaultHelp.py [--simpleOption value] [--optionWithMin2 value1 ...] [--deleteFiles] [--optionWithShortName, -o value] [--optionWithDefaultList value1 ...] [--optionWithMin2Max2 value1 ...] [--optionWithMin2Max3 value1 ...] [--optionWithMax2 value1 ...] [--optionWithMax3 value1 ...] [--optionWithDefaultAndShortName, -t value] [--optionWithMin3 value1 ...] [--optionWithMin1 value1 ...] [--booleanOptionWithShortName, -i] [--optionWithMin1Max3 value1 ...] [--optionWithMin3Max3 value1 ...] [--optionWithDefault value] [--optionWithMin1Max2 value1 ...] [--optionWithMin2Max4 value1 ...] [--optionWithMin3Max5 value1 ...] [--optionWithMin3Max4 value1 ...]\n'))
+      helpLines = helpText.splitlines()
+      usage = helpLines[0]
+      assert_true(usage.startswith('Usage: TestCliWithDefaultHelp.py '))
+      assert_true(usage.find('[--deleteFiles]') != -1)
+      assert_true(usage.find('[--simpleOption value]') != -1)
+      assert_true(usage.find('[--optionWithDefault value]') != -1)
+      assert_true(usage.find('[--optionWithDefaultList value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithShortName, -o value]') != -1)
+      assert_true(usage.find('[--booleanOptionWithShortName, -i]') != -1)
+      assert_true(usage.find('[--optionWithDefaultAndShortName, -t value]') != -1)
+      assert_true(usage.find('[--optionWithMin1 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin2 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin3 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMax2 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMax3 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin1Max2 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin1Max3 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin2Max2 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin2Max3 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin2Max4 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin3Max3 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin3Max4 value1 ...]') != -1)
+      assert_true(usage.find('[--optionWithMin3Max5 value1 ...]') != -1)
+      assert_true(usage.endswith('argumentA argumentB\n') != -1)
+
       assert_true(helpText.find('where:\n') != -1)
       assert_true(helpText.find('--deleteFiles                                                          (True if specified, otherwise False)') != -1)
       assert_true(helpText.find('--simpleOption                      value') != -1)
@@ -80,6 +109,7 @@ class TestCliWithDefaultHelp(object):
       assert_true(helpText.find('--optionWithMin3Max3                value1 ... valueMinMax3') != -1)
       assert_true(helpText.find('--optionWithMin3Max4                value1 ... valueMin3 valueMax4') != -1)
       assert_true(helpText.find('--optionWithMin3Max5                value1 ... valueMin3 ... valueMax5') != -1)
+      assert_equals([arg.strip() for arg in helpLines[-2:]], ['argumentA', 'argumentB'])
 
 if __name__ == '__main__':
    import sys, inspect, nose
