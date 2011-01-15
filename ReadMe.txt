@@ -66,7 +66,7 @@ The Cli library has the following features:
      - Ability define a short name for each option
      - Ability to define default value for each option
      - Ability to mark options as mandatory
-     - Ability to mark an option as multi-valued
+     - Ability to mark an option as multi-valued (with optional min/max values)
      - Auto-generates help text based on the interface
      - Ability to define additional custom help text for each option
      - Ability to define custom value formatters for each option
@@ -124,6 +124,18 @@ MyApp.py:
 
 The above code could be invoked with the following command line arguments:
    python MyApp.py -f File1.txt File2.txt -o Result.txt --replace
+   
+Help text for this would be invoked by --help (or -?) and displayed as follows:
+   python MyApp.py --help
+
+   Output
+   ------
+   Usage: TestCliWithCustomisedHelp.py --inputFiles, -f value1 ... [--outputFile, -o value] [--maxOutputSize, -m value] [--replace, -r]
+   where:
+   --inputFiles,    -f value1 value2 ...                                      List of input files to process
+   --outputFile,    -o value             (default='output.csv')               Output filename
+   --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
+   --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 
 To Do
 =====

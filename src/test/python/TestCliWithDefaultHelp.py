@@ -11,13 +11,36 @@ class MyOptions(object):
    def getOptionWithShortName(self, shortName='o'): pass
    def isBooleanOptionWithShortName(self, shortName='i'): pass
    def getOptionWithDefaultAndShortName(self, default=999, shortName='t'): pass
+   def getOptionWithMin1(self, multiValued, min=1): pass
+   def getOptionWithMin2(self, multiValued, min=2): pass
+   def getOptionWithMin3(self, multiValued, min=3): pass
+   def getOptionWithMax2(self, multiValued, max=2): pass
+   def getOptionWithMax3(self, multiValued, max=3): pass
+   def getOptionWithMin1Max2(self, multiValued, min=1, max=2): pass
+   def getOptionWithMin1Max3(self, multiValued, min=1, max=3): pass
+   def getOptionWithMin2Max2(self, multiValued, min=2, max=2): pass
+   def getOptionWithMin2Max3(self, multiValued, min=2, max=3): pass
+   def getOptionWithMin2Max4(self, multiValued, min=2, max=4): pass
+   def getOptionWithMin3Max3(self, multiValued, min=3, max=3): pass
+   def getOptionWithMin3Max4(self, multiValued, min=3, max=4): pass
+   def getOptionWithMin3Max5(self, multiValued, min=3, max=5): pass
 
 class TestCliWithDefaultHelp(object):
    def testCanRequestHelpTextFromCliInstance(self):
       self.__checkHelpText(Cli(MyOptions).helpText)
 
    def testCanRequestHelpTextFromParsedArguments(self):
-      self.__checkHelpText(Cli(MyOptions).parseArguments([]).helpText)
+      self.__checkHelpText(Cli(MyOptions).parseArguments(['--optionWithMin1', '1',
+                                                          '--optionWithMin2', '1', '2',
+                                                          '--optionWithMin3', '1', '2', '3',
+                                                          '--optionWithMin1Max2', '1',
+                                                          '--optionWithMin1Max3', '1',
+                                                          '--optionWithMin2Max2', '1', '2',
+                                                          '--optionWithMin2Max3', '1', '2',
+                                                          '--optionWithMin2Max4', '1', '2',
+                                                          '--optionWithMin3Max3', '1', '2', '3',
+                                                          '--optionWithMin3Max4', '1', '2', '3',
+                                                          '--optionWithMin3Max5', '1', '2', '3']).helpText)
 
    def testMinusMinusHelpGeneratesHelpText(self):
       try:
@@ -34,15 +57,29 @@ class TestCliWithDefaultHelp(object):
          self.__checkHelpText(e.helpText)
 
    def __checkHelpText(self, helpText):
-      assert_true(helpText.startswith('Usage: TestCliWithDefaultHelp.py [--optionWithShortName, -o value] [--optionWithDefaultList value1 value2 ...] [--optionWithDefaultAndShortName, -t value] [--deleteFiles] [--optionWithDefault value] [--booleanOptionWithShortName, -i] [--simpleOption value]\n'))
+      print helpText
+      assert_true(helpText.startswith('Usage: TestCliWithDefaultHelp.py [--simpleOption value] [--optionWithMin2 value1 ...] [--deleteFiles] [--optionWithShortName, -o value] [--optionWithDefaultList value1 ...] [--optionWithMin2Max2 value1 ...] [--optionWithMin2Max3 value1 ...] [--optionWithMax2 value1 ...] [--optionWithMax3 value1 ...] [--optionWithDefaultAndShortName, -t value] [--optionWithMin3 value1 ...] [--optionWithMin1 value1 ...] [--booleanOptionWithShortName, -i] [--optionWithMin1Max3 value1 ...] [--optionWithMin3Max3 value1 ...] [--optionWithDefault value] [--optionWithMin1Max2 value1 ...] [--optionWithMin2Max4 value1 ...] [--optionWithMin3Max5 value1 ...] [--optionWithMin3Max4 value1 ...]\n'))
       assert_true(helpText.find('where:\n') != -1)
-      assert_true(helpText.find('--deleteFiles                                         (True if specified, otherwise False)') != -1)
+      assert_true(helpText.find('--deleteFiles                                                          (True if specified, otherwise False)') != -1)
       assert_true(helpText.find('--simpleOption                      value') != -1)
-      assert_true(helpText.find('--optionWithDefault                 value             (default=\'123\')') != -1)
-      assert_true(helpText.find('--optionWithDefaultList             value1 value2 ... (default=[\'123\', \'456\'])') != -1)
+      assert_true(helpText.find('--optionWithDefault                 value                              (default=\'123\')') != -1)
+      assert_true(helpText.find('--optionWithDefaultList             value1 value2 ...                  (default=[\'123\', \'456\'])') != -1)
       assert_true(helpText.find('--optionWithShortName,           -o value') != -1)
-      assert_true(helpText.find('--booleanOptionWithShortName,    -i                   (True if specified, otherwise False)') != -1)
-      assert_true(helpText.find('--optionWithDefaultAndShortName, -t value             (default=\'999\')') != -1)
+      assert_true(helpText.find('--booleanOptionWithShortName,    -i                                    (True if specified, otherwise False)') != -1)
+      assert_true(helpText.find('--optionWithDefaultAndShortName, -t value                              (default=\'999\')') != -1)
+      assert_true(helpText.find('--optionWithMin1                    valueMin1 ...') != -1)
+      assert_true(helpText.find('--optionWithMin2                    value1 valueMin2 ...') != -1)
+      assert_true(helpText.find('--optionWithMin3                    value1 ... valueMin3 ...') != -1)
+      assert_true(helpText.find('--optionWithMax2                    value1 valueMax2') != -1)
+      assert_true(helpText.find('--optionWithMax3                    value1 ... valueMax3') != -1)
+      assert_true(helpText.find('--optionWithMin1Max2                valueMin1 valueMax2') != -1)
+      assert_true(helpText.find('--optionWithMin1Max3                valueMin1 ... valueMax3') != -1)
+      assert_true(helpText.find('--optionWithMin2Max2                value1 valueMinMax2') != -1)
+      assert_true(helpText.find('--optionWithMin2Max3                value1 valueMin2 valueMax3') != -1)
+      assert_true(helpText.find('--optionWithMin2Max4                value1 valueMin2 ... valueMax4') != -1)
+      assert_true(helpText.find('--optionWithMin3Max3                value1 ... valueMinMax3') != -1)
+      assert_true(helpText.find('--optionWithMin3Max4                value1 ... valueMin3 valueMax4') != -1)
+      assert_true(helpText.find('--optionWithMin3Max5                value1 ... valueMin3 ... valueMax5') != -1)
 
 if __name__ == '__main__':
    import sys, inspect, nose

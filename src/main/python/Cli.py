@@ -17,7 +17,7 @@ The Cli library has the following features:
      - Ability define a short name for each option
      - Ability to define default value for each option
      - Ability to mark options as mandatory
-     - Ability to mark an option as multi-valued
+     - Ability to mark an option as multi-valued (with optional min/max values)
      - Auto-generates help text based on the interface
      - Ability to define additional custom help text for each option
      - Ability to define custom value formatters for each option
@@ -75,8 +75,20 @@ MyApp.py:
 
 The above code could be invoked with the following command line arguments:
    python MyApp.py -f File1.txt File2.txt -o Result.txt --replace
+   
+Help text for this would be invoked by --help (or -?) and displayed as follows:
+   python MyApp.py --help
+
+   Output
+   ------
+   Usage: TestCliWithCustomisedHelp.py --inputFiles, -f value1 ... [--outputFile, -o value] [--maxOutputSize, -m value] [--replace, -r]
+   where:
+   --inputFiles,    -f value1 value2 ...                                      List of input files to process
+   --outputFile,    -o value             (default='output.csv')               Output filename
+   --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
+   --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.0.0"
+__VERSION__ = __version__ = "1.0.1"
 
 import inspect
 import os
@@ -97,6 +109,9 @@ def __numericValueFormatter(optionName, value):
       0b10110   binary value
       076123    octal value
    '''
+   if type(value) == int:
+      return value
+
    if value[:2].lower() == '0x':         # hexadecimal
       radix = 16
    elif value[:2].lower() == '0b':       # binary
@@ -295,6 +310,8 @@ class _OptionDescription(object):
          defaultsOffset = len(methodArgs) - len(defaults)
       else:
          defaultsOffset = None
+      self.__minCount = None
+      self.__maxCount = None
       self.__methodArgs = []
       unrecognisedArgs = []
       for index in range(0, len(methodArgs)):
@@ -308,6 +325,12 @@ class _OptionDescription(object):
          elif methodArg == 'valueFormatter':
             self.__valueFormatter = self.__defaults[index - defaultsOffset]
             self.__methodArgs.append('%s=%r' % (methodArg, self.__valueFormatter))
+         elif methodArg == 'min':
+            self.__minCount = self.__defaults[index - defaultsOffset]
+            self.__methodArgs.append('%s=%r' % (methodArg, self.__minCount))
+         elif methodArg == 'max':
+            self.__maxCount = self.__defaults[index - defaultsOffset]
+            self.__methodArgs.append('%s=%r' % (methodArg, self.__maxCount))
          elif methodArg != 'mandatory' and methodArg != 'multiValued':
             unrecognisedArgs.append(methodArg)
          else:
@@ -328,8 +351,35 @@ class _OptionDescription(object):
             raise CliParseError('Boolean option %s cannot have a "valueFormatter"' % self)
 
       if self.__hasDefault:
-         if not self.__isMultiValued and type(self.__defaultValue) == list and len(self.__defaultValue) > 1:
+         if self.__isMandatory:
+            raise CliParseError('Mandatory option %s cannot have "default" values' % self)
+         elif not self.__isMultiValued and type(self.__defaultValue) == list and len(self.__defaultValue) > 1:
             raise CliParseError('Single-valued option %s cannot have multiple "default" values' % self)
+
+      if not self.__isMultiValued:
+         if self.__minCount is not None:
+            raise CliParseError('Single-valued option %s cannot have "min" specified' % self)
+         elif self.__maxCount is not None:
+            raise CliParseError('Single-valued option %s cannot have "max" specified' % self)
+      else:
+         if self.__minCount is not None:
+            if type(self.__minCount) != int:
+               raise CliParseError('Multi-valued option %s has a non-numeric "min" value' % self)
+            elif self.__minCount < 0:
+               raise CliParseError('Multi-valued option %s cannot have "min" less than zero' % self)
+         if self.__maxCount is not None:
+            if type(self.__maxCount) != int:
+               raise CliParseError('Multi-valued option %s has a non-numeric "max" value' % self)
+            elif self.__maxCount < 2:
+               raise CliParseError('Multi-valued option %s cannot have "max" less than two' % self)
+            elif self.__minCount is not None and self.__maxCount < self.__minCount:
+               raise CliParseError('Multi-valued option %s cannot have "max" less than "min"' % self)
+         if self.__hasDefault:
+            defaultCount = len(self.__defaultValue) if type(self.__defaultValue) == list else 1
+            if self.__minCount is not None and defaultCount < self.__minCount:
+               raise CliParseError('Multi-valued option %s must have at least %d "default" values' % (self, self.__minCount))
+            elif self.__maxCount is not None and defaultCount > self.__maxCount:
+               raise CliParseError('Multi-valued option %s must have at most %d "default" values' % (self, self.__maxCount))
 
       if not callable(self.__valueFormatter):
          raise CliParseError('Option %s has a non-callable valueFormatter.' % self)
@@ -374,6 +424,22 @@ class _OptionDescription(object):
       return self.__isMultiValued
 
    @property
+   def hasMinCount(self):
+      return self.__minCount is not None
+
+   @property
+   def minCount(self):
+      return self.__minCount
+
+   @property
+   def hasMaxCount(self):
+      return self.__maxCount is not None
+
+   @property
+   def maxCount(self):
+      return self.__maxCount
+
+   @property
    def hasDefault(self):
       return self.__hasDefault or self.__isBooleanMethod
 
@@ -411,10 +477,37 @@ class _OptionDescription(object):
          components['value'] = ''
       else:
          if self.isMultiValued:
-            components['value'] = 'value1 value2 ...'
+            usageText += ' value1 ...'
+            if self.hasMinCount or self.hasMaxCount:
+               minCount = 1
+               endValues = ['value2']
+               if self.hasMinCount:
+                  minCount = self.minCount
+                  endValues = []
+                  if self.minCount == 1:
+                     startValues = ['valueMin1']
+                  elif self.minCount == 2:
+                     startValues = ['value1', 'valueMin2']
+                  else:
+                     startValues = ['value1', '...', 'valueMin%d' % (self.minCount,)]
+               else:
+                  startValues = ['value1']
+               if self.hasMaxCount:
+                  if self.maxCount == minCount:
+                     del startValues[-1]
+                     endValues = ['valueMinMax%d' % minCount]
+                  elif self.maxCount <= minCount + 1:
+                     endValues = ['valueMax%d' % (minCount + 1,)]
+                  else:
+                     endValues = ['...', 'valueMax%d' % self.maxCount]
+               else:
+                  endValues.append('...')
+               components['value'] = ' '.join(startValues + endValues)
+            else:
+               components['value'] = 'value1 value2 ...'
          else:
+            usageText += ' value'
             components['value'] = 'value'
-         usageText += ' ' + components['value']
 
       if self.hasDefault:
          components['default'] = self.default
@@ -507,19 +600,32 @@ class _Context(object):
    def appendOptionValue(self, value):
       if self.__option.isBoolean:
          raise CliParseError('Option --%s is defined as Boolean in class "%s". It is False by default or True if it appears on its own.\nFound unexpected value "%s" after this option.' % (self.__option.name, self.__optionsClass.__name__, value))
-      elif not self.__option.isMultiValued and len(self.__options[self.__option.name]) > 0:
+
+      valueCount = len(self.__options[self.__option.name])
+      if self.__option.isMultiValued:
+         if self.__option.hasMaxCount and valueCount == self.__option.maxCount:
+            raise CliParseError('Multi-valued option --%s in class "%s" cannot have more than %d values' % (self.__option.name, self.__optionsClass.__name__, self.__option.maxCount))
+      elif valueCount > 0:
          raise CliParseError('Single-valued option --%s in class "%s" cannot have multiple values' % (self.__option.name, self.__optionsClass.__name__))
       self.__options[self.__option.name].append(self.__option.formatValue(value))
 
    def validateOptions(self):
       for optionName in self.__options.keys():
          methodNameSuffix = optionName[0].upper() + optionName[1:]
-         if self.__supportedOptions.has_key('get' + methodNameSuffix) and len(self.__options[optionName]) == 0:
-            raise CliParseError('Missing value for option --%s of class: %s' % (self.__option.name, self.__optionsClass.__name__))
+         if self.__supportedOptions.has_key('get' + methodNameSuffix):
+            option = self.__supportedOptions['get' + methodNameSuffix]
+            valueCount = len(self.__options[optionName])
+            if valueCount == 0:
+               raise CliParseError('Missing value for option --%s of class: %s' % (optionName, self.__optionsClass.__name__))
+            elif option.isMultiValued:
+               if option.hasMinCount and valueCount < option.minCount:
+                  raise CliParseError('Multi-valued option --%s of class "%s" was given %d values - must have at least %d value(s)' % (optionName, self.__optionsClass.__name__, valueCount, option.minCount))
 
       for option in self.__supportedOptions.values():
          if option.isMandatory and option.name not in self.__options:
             raise CliParseError('Missing mandatory option --%s of class: %s' % (option.name, self.__optionsClass.__name__))
+         elif option.isMultiValued and option.hasMinCount and option.minCount > 0 and option.name not in self.__options:
+            raise CliParseError('Multi-valued option --%s of class "%s" must be given with at least %d value(s)' % (option.name, self.__optionsClass.__name__, option.minCount))
 
       return self.__options
 

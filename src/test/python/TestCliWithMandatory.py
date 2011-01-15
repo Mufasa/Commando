@@ -10,6 +10,9 @@ class MyOptions(object):
 class BadMandatoryOption(object):
    def getMandatoryOption(self, mandatory=True): pass
 
+class BadMandatoryWithDefaultOption(object):
+   def getOption(self, mandatory, default=123): pass
+
 class TestCliWithMandatory(object):
    def testUnspecifiedNonMandatoryOptionReturnsNone(self):
       myOptions = Cli(MyOptions).parseArguments(['--mandatoryOption', 'value'])
@@ -21,6 +24,9 @@ class TestCliWithMandatory(object):
 
    def testMandatoryOptionWithValueAgainstMandatoryAttributeThrows(self):
       assert_raises(CliParseError, Cli, BadMandatoryOption)
+
+   def testMandatoryOptionWithDefaultValueThrows(self):
+      assert_raises(CliParseError, Cli, BadMandatoryWithDefaultOption)
 
 if __name__ == '__main__':
    import sys, inspect, nose

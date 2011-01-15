@@ -1,3 +1,9 @@
 Cli v1.0.0
 ==========
 - Initial version
+
+Cli v1.0.1
+==========
+1. Added validation to disallow defaults for mandatory options
+2. Added ability to specify the min/max number of values allowed for a
+multi-valued option
