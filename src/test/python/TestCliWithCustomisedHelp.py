@@ -18,25 +18,7 @@ class MyOptions(object):
       'specific help on this option'
       pass
 
-class MyOptions2(object):
-   def getInputFiles(self, multiValued, mandatory, shortName='f'):
-      'List of input files to process'
-      pass
-   def getOutputFile(self, shortName='o', default='output.csv'):
-      'Output filename'
-      pass
-   def isReplace(self, shortName='r'):
-      'Do you want to replace the output file if it already exists'
-      pass
-   def getMaxOutputSize(self, shortName='m', default=1024, valueFormatter=NUMERIC_VALUE_FORMATTER):
-      'Maximum size to limit the output file to'
-      pass
-
 class TestCliWithCustomisedHelp(object):
-   def testX(self):
-      print Cli(MyOptions2).helpText
-      assert False
-
    def testSpecifiedHelpStringsAppearInHelpText(self):
       self.__checkHelpText(Cli(MyOptions).helpText, 'TestCliWithCustomisedHelp.py')
 
