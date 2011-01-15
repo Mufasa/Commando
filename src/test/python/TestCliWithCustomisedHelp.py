@@ -1,7 +1,6 @@
 from nose.tools import *
 
 from Cli import Cli
-from Cli import NUMERIC_VALUE_FORMATTER
 
 PURPOSE = 'This is where you would describe the purpose of the program using these options'
 

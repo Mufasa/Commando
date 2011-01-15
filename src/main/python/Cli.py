@@ -586,7 +586,7 @@ class _Context(object):
          self.__option = self.__supportedOptions['is' + methodNameSuffix]
          self.__options[optionName] = True
       else:
-         raise CliParseError('Option --%s has no corresponding get/is method in class: %s' % (optionName, self.__optionsClass.__name__))
+         raise CliParseError('Unrecognised option --%s' % optionName)
 
    def addShortOption(self, optionName):
       if optionName == '?':
@@ -595,18 +595,18 @@ class _Context(object):
       if self.__shortOptions.has_key(optionName):
          self.addOption(self.__shortOptions[optionName])
       else:
-         raise CliParseError('Short Option -%s has no corresponding get/is method in class: %s' % (optionName, self.__optionsClass.__name__))
+         raise CliParseError('Unrecognised short option -%s' % optionName)
 
    def appendOptionValue(self, value):
       if self.__option.isBoolean:
-         raise CliParseError('Option --%s is defined as Boolean in class "%s". It is False by default or True if it appears on its own.\nFound unexpected value "%s" after this option.' % (self.__option.name, self.__optionsClass.__name__, value))
+         raise CliParseError('Boolean option --%s cannot be followed by a value.\nFound unexpected value "%s" after this option.' % (self.__option.name, value))
 
       valueCount = len(self.__options[self.__option.name])
       if self.__option.isMultiValued:
          if self.__option.hasMaxCount and valueCount == self.__option.maxCount:
-            raise CliParseError('Multi-valued option --%s in class "%s" cannot have more than %d values' % (self.__option.name, self.__optionsClass.__name__, self.__option.maxCount))
+            raise CliParseError('Multi-valued option --%s cannot have more than %d values' % (self.__option.name, self.__option.maxCount))
       elif valueCount > 0:
-         raise CliParseError('Single-valued option --%s in class "%s" cannot have multiple values' % (self.__option.name, self.__optionsClass.__name__))
+         raise CliParseError('Single-valued option --%s cannot have multiple values' % self.__option.name)
       self.__options[self.__option.name].append(self.__option.formatValue(value))
 
    def validateOptions(self):
@@ -616,16 +616,16 @@ class _Context(object):
             option = self.__supportedOptions['get' + methodNameSuffix]
             valueCount = len(self.__options[optionName])
             if valueCount == 0:
-               raise CliParseError('Missing value for option --%s of class: %s' % (optionName, self.__optionsClass.__name__))
+               raise CliParseError('Missing value for option --%s' % optionName)
             elif option.isMultiValued:
                if option.hasMinCount and valueCount < option.minCount:
-                  raise CliParseError('Multi-valued option --%s of class "%s" was given %d values - must have at least %d value(s)' % (optionName, self.__optionsClass.__name__, valueCount, option.minCount))
+                  raise CliParseError('Multi-valued option --%s was given %d values - must have at least %d value(s)' % (optionName, valueCount, option.minCount))
 
       for option in self.__supportedOptions.values():
          if option.isMandatory and option.name not in self.__options:
-            raise CliParseError('Missing mandatory option --%s of class: %s' % (option.name, self.__optionsClass.__name__))
+            raise CliParseError('Missing mandatory option --%s' % option.name)
          elif option.isMultiValued and option.hasMinCount and option.minCount > 0 and option.name not in self.__options:
-            raise CliParseError('Multi-valued option --%s of class "%s" must be given with at least %d value(s)' % (option.name, self.__optionsClass.__name__, option.minCount))
+            raise CliParseError('Multi-valued option --%s must be given with at least %d value(s)' % (option.name, option.minCount))
 
       return self.__options
 
@@ -690,15 +690,6 @@ class _Option(object):
 
    def __call__(self, *params, **namedParams):
       return self.__values
-
-   def __getattr__(self, name):
-      raise CliParseError('__getattr__(%s): Unsupported operation for option %s' % (name, self.__optionDescription))
-
-   def __iter__(self):
-      raise CliParseError('__iter__: Unsupported operation for option %s' % self.__optionDescription)
-
-   def next(self):
-      raise CliParseError('next: Unsupported operation for option %s' % self.__optionDescription)
 
    def __str__(self):
       return self.__optionDescription
