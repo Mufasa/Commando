@@ -20,3 +20,8 @@ Cli v1.1.1
 Cli v1.1.2
 ==========
 - Help text for multi-valued options with a specified "min" now displays them as mandatory
+
+Cli v1.1.3
+==========
+- Now restricts value passed to @positional decorator to integers
+- Added tests for boolean positional arguments

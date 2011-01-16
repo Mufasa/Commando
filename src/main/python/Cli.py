@@ -90,7 +90,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.1.2"
+__VERSION__ = __version__ = "1.1.3"
 
 import inspect
 import os
@@ -161,6 +161,8 @@ class positional(object):
       self.__relativePosition = relativePosition
 
    def __call__(self, f):
+      if type(self.__relativePosition) != int:
+         raise CliParseError('Positional value for method "%s" must be an integer. Found "%s" of %s' % (f.__name__, self.__relativePosition, type(self.__relativePosition)))
       self.__f = f
       return self
 
@@ -734,7 +736,7 @@ class _Context(object):
             if option.isBoolean:
                if value.lower() not in ['true', 'false']:
                   raise CliParseError('Invalid boolean value "%s" for positional argument "%s". Must be "True" or "False" (case insensitive).' % (value, option.name))
-               self.__parsedOptions[option.name] = value == 'true'
+               self.__parsedOptions[option.name] = value.lower() == 'true'
             else:
                self.__parsedOptions[option.name] = value
 

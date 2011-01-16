@@ -15,6 +15,10 @@ class MyOptions(object):
    @positional(2)
    def getPositionalArgumentB(self): pass
 
+class BooleanPositionalOptions(object):
+   @positional(1)
+   def isTest(self): pass
+
 class SinglePositionalOptions(object):
    @positional(1)
    def getPositionalArgumentA(self): pass
@@ -90,6 +94,40 @@ class TestCliWithPositional(object):
       assert_equals(myOptions.getPositionalArgumentA(), 'pA')
       assert_equals(myOptions.getPositionalArgumentB(), 'pB')
 
+   def testBooleanPositionalArgumentAllowsTrue(self):
+      cli = Cli(BooleanPositionalOptions)
+
+      myOptions = cli.parseArguments(['true'])
+      assert_true(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['True'])
+      assert_true(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['tRue'])
+      assert_true(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['TRUE'])
+      assert_true(myOptions.isTest())
+
+   def testBooleanPositionalArgumentAllowsFalse(self):
+      cli = Cli(BooleanPositionalOptions)
+
+      myOptions = cli.parseArguments(['false'])
+      assert_false(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['False'])
+      assert_false(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['fAlse'])
+      assert_false(myOptions.isTest())
+
+      myOptions = cli.parseArguments(['FALSE'])
+      assert_false(myOptions.isTest())
+
+   def testBooleanPositionalArgumentThrowsIfNotTrueOrFalse(self):
+      cli = Cli(BooleanPositionalOptions)
+      assert_raises(CliParseError, cli.parseArguments, ['wibble'])
+
    def testSinglePositionalArgumentRetrievedAsAValue(self):
       myOptions = Cli(SinglePositionalOptions).parseArguments(['pA'])
       assert_equals(myOptions.getPositionalArgumentA(), 'pA')
@@ -105,6 +143,16 @@ class TestCliWithPositional(object):
       assert_equals(myOptions.getOption(), ['A', 'B', 'C'])
       assert_equals(myOptions.getPositionalArgumentA(), 'pA')
       assert_equals(myOptions.getPositionalArgumentB(), 'pB')
+
+   def testNonIntPositionalDataTypeThrows(self):
+      try:
+         class BadPositionalDataType(object):
+            @positional('1')
+            def getPositionalArgument(self): pass
+      except:
+         return
+
+      assert False, 'Non int data type for @positional value should not be allowed'
 
    def testDuplicatePositionsThrows(self):
       assert_raises(CliParseError, Cli, BadDuplicatePosition)
