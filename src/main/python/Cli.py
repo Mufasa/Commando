@@ -90,7 +90,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.1.3"
+__VERSION__ = __version__ = "1.1.4"
 
 import inspect
 import os
@@ -618,6 +618,9 @@ class _ParsedOptions(object):
       self.__optionsClass = optionsClass
       self.__helpText = helpText
       self.__options = options.copy()
+
+      self.__checkPositionalArguments(positionalArguments, args)
+
       for argument in positionalArguments:
          self.__options[argument.methodName] = argument
 
@@ -634,6 +637,24 @@ class _ParsedOptions(object):
    def helpText(self):
       'The help text'
       return self.__helpText
+
+   def __checkPositionalArguments(self, positionalArguments, args):
+      context = _Context(self.__optionsClass, self.__helpText, self.__options, [])
+      state = _StartCheckState(context)
+      argsLeft = len(args)
+      if state is not None:
+         for arg in args:
+            state = state.process(arg)
+            if state is None: break
+            argsLeft -= 1;
+
+      numberOfMissingPositionalArguments = len(positionalArguments) - argsLeft
+      if numberOfMissingPositionalArguments > 0:
+         missingPositionalArguments = [option.name for option in positionalArguments[-numberOfMissingPositionalArguments:]]
+         if numberOfMissingPositionalArguments > 1:
+            raise CliParseError('Missing values for positional arguments: %s' % missingPositionalArguments)
+         elif numberOfMissingPositionalArguments == 1:
+            raise CliParseError('Missing value for last positional argument: %s' % missingPositionalArguments)
 
    def __getattr__(self, name):
       if self.__options.has_key(name):
@@ -685,6 +706,16 @@ class _Context(object):
          self.addOption(self.__shortOptions[optionName])
       else:
          raise CliParseError('Unrecognised short option -%s' % optionName)
+
+   def requiresValue(self):
+      if self.__option.isBoolean:
+         return False
+
+      valueCount = len(self.__parsedOptions[self.__option.name])
+      if self.__option.isMultiValued and self.__option.hasMinCount:
+         return valueCount < self.__option.minCount
+
+      return valueCount == 0
 
    def appendOptionValue(self, value):
       if self.__option.isBoolean:
@@ -742,6 +773,45 @@ class _Context(object):
 
       return self.__parsedOptions
 
+class _StartCheckState(object):
+   'The initial state during parsing of the command line while checking positional arguments'
+   def __init__(self, context):
+      self.__context = context
+
+   def process(self, arg):
+      if arg.startswith('-'):
+         return _OptionCheckState(self.__context, arg)
+      else:
+         return None
+
+class _OptionCheckState(object):
+   'We are processing an option in this state while checking positional arguments'
+   def __init__(self, context, arg):
+      self.__context = context
+      if arg.startswith('--'):
+         if len(arg) < 3:
+            raise CliParseError('Missing option name after: ' + arg)
+         elif arg[2] == '-':
+            raise CliParseError('Too many -\'s in option: ' + arg)
+         elif arg[2].lower() != arg[2]:
+            raise CliParseError('Options must start with a lower case letter: ' + arg)
+         context.addOption(arg[2:])
+      elif len(arg) < 2:
+         raise CliParseError('Missing option name after: ' + arg)
+      elif arg[1].lower() != arg[1]:
+         raise CliParseError('Short Options must start with a lower case letter: ' + arg)
+      else: # startswith '-'
+         context.addShortOption(arg[1:])
+
+   def process(self, arg):
+      if arg.startswith('-'):
+         return _OptionCheckState(self.__context, arg)
+      elif self.__context.requiresValue():
+         self.__context.appendOptionValue(arg)
+         return self
+      else:
+         return None
+
 class _StartState(object):
    'The initial state during parsing of the command line'
    def __init__(self, context):
@@ -760,17 +830,7 @@ class _OptionState(object):
    def __init__(self, context, arg):
       self.__context = context
       if arg.startswith('--'):
-         if len(arg) < 3:
-            raise CliParseError('Missing option name after: ' + arg)
-         elif arg[2] == '-':
-            raise CliParseError('Too many -\'s in option: ' + arg)
-         elif arg[2].lower() != arg[2]:
-            raise CliParseError('Options must start with a lower case letter: ' + arg)
          context.addOption(arg[2:])
-      elif len(arg) < 2:
-         raise CliParseError('Missing option name after: ' + arg)
-      elif arg[1].lower() != arg[1]:
-         raise CliParseError('Short Options must start with a lower case letter: ' + arg)
       else: # startswith '-'
          context.addShortOption(arg[1:])
 

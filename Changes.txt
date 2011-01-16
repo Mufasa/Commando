@@ -25,3 +25,7 @@ Cli v1.1.3
 ==========
 - Now restricts value passed to @positional decorator to integers
 - Added tests for boolean positional arguments
+
+Cli v1.1.4
+==========
+- Improved error checking for missing positional arguments
