@@ -90,7 +90,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.1.1"
+__VERSION__ = __version__ = "1.1.2"
 
 import inspect
 import os
@@ -600,7 +600,7 @@ class _OptionDescription(object):
       else:
          components['docString'] = ''
 
-      if self.isMandatory or self.hasPosition:
+      if self.isMandatory or (self.isMultiValued and self.hasMinCount) or self.hasPosition:
          components['usage'] = usageText
       else:
          components['usage'] = '[' + usageText + ']'

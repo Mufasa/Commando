@@ -16,3 +16,7 @@ Cli v1.1.0
 Cli v1.1.1
 ==========
 - Multi-valued options now always return values as a list (even if only one value specified)
+
+Cli v1.1.2
+==========
+- Help text for multi-valued options with a specified "min" now displays them as mandatory
