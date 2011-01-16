@@ -16,6 +16,9 @@ class OptionWithMax(object):
 class BadSingleValuedOption(object):
    def getSingleValuedOption(self, default=['x', 'y']): pass
 
+class BadMultiValuedDefaultOption(object):
+   def getOption(self, multiValued, default='abc'): pass
+
 class BadMultiValuedBoolenOption(object):
    def isSomething(self, multiValued): pass
 
@@ -54,12 +57,19 @@ class TestCliWithMultiValued(object):
       myOptions = Cli(MyOptions).parseArguments([])
       assert_equals(myOptions.getMultiValuedOption(), ['abc', 'def'])
 
+   def testMultiValuedOptionWithJustOneValueSpecifiedReturnsItAsAList(self):
+      myOptions = Cli(MyOptions).parseArguments(['--multiValuedOption', 'one'])
+      assert_equals(myOptions.getMultiValuedOption(), ['one'])
+
    def testMultiValuedOptionReturnsAllSpecifiedValues(self):
       myOptions = Cli(MyOptions).parseArguments(['--multiValuedOption', 'one', 'two', 'three'])
       assert_equals(myOptions.getMultiValuedOption(), ['one', 'two', 'three'])
 
    def testSingleValuedOptionThrowsIfMultipleDefaultValuesSpecified(self):
       assert_raises(CliParseError, Cli, BadSingleValuedOption)
+
+   def testMultiValuedOptionThrowsIfDefaultIsNotAList(self):
+      assert_raises(CliParseError, Cli, BadMultiValuedDefaultOption)
 
    def testMultiValuedBoolenOptionThrows(self):
       assert_raises(CliParseError, Cli, BadMultiValuedBoolenOption)
@@ -78,7 +88,7 @@ class TestCliWithMultiValued(object):
    def testMultiValuedWithMinOptionDoesNotThrowsIfAtLeastMinValuesGiven(self):
       cli = Cli(OptionWithMin)
       options = cli.parseArguments(['--option', 'blue'])
-      assert_equals(options.getOption(), 'blue')
+      assert_equals(options.getOption(), ['blue'])
 
    def testMultiValuedWithMaxOptionThrowsIfMoreThanMaxValuesGiven(self):
       cli = Cli(OptionWithMax)

@@ -12,3 +12,7 @@ Cli v1.1.0
 ==========
 1. Added ability to specify positional arguments
 2. Added tests to cover invalid shortName specifications
+
+Cli v1.1.1
+==========
+- Multi-valued options now always return values as a list (even if only one value specified)

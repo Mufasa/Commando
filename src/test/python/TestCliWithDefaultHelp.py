@@ -46,7 +46,8 @@ class TestCliWithDefaultHelp(object):
                                                           '--optionWithMin2Max4', '1', '2',
                                                           '--optionWithMin3Max3', '1', '2', '3',
                                                           '--optionWithMin3Max4', '1', '2', '3',
-                                                          '--optionWithMin3Max5', '1', '2', '3']).helpText)
+                                                          '--optionWithMin3Max5', '1', '2', '3',
+                                                          'positionalA', 'positionalB']).helpText)
 
    def testMinusMinusHelpGeneratesHelpText(self):
       try:

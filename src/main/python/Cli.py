@@ -90,7 +90,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.1.0"
+__VERSION__ = __version__ = "1.1.1"
 
 import inspect
 import os
@@ -440,7 +440,9 @@ class _OptionDescription(object):
             elif self.__minCount is not None and self.__maxCount < self.__minCount:
                raise CliParseError('Multi-valued option %s cannot have "max" less than "min"' % self)
          if self.__hasDefault:
-            defaultCount = len(self.__defaultValue) if type(self.__defaultValue) == list else 1
+            if type(self.__defaultValue) != list:
+               raise CliParseError('Multi-valued option %s must have "default" values defined as a "list"' % self)
+            defaultCount = len(self.__defaultValue)
             if self.__minCount is not None and defaultCount < self.__minCount:
                raise CliParseError('Multi-valued option %s must have at least %d "default" values' % (self, self.__minCount))
             elif self.__maxCount is not None and defaultCount > self.__maxCount:
@@ -807,7 +809,7 @@ class _Option(object):
       elif type(values) is list:
          if len(values) == 0:
             self.__values = True
-         elif len(values) == 1:
+         elif len(values) == 1 and not optionDescription.isMultiValued:
             self.__values = values[0]
          else:
             self.__values = values

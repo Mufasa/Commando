@@ -41,7 +41,7 @@ class TestCliWithValueFormatter(object):
 
    def testNumericValueFormatterReturnsDecimalNumberAsNumberType(self):
       myOptions = Cli(MyOptions).parseArguments(['--numericOption', '123'])
-      assert_equals(myOptions.getNumericOption(), 123)
+      assert_equals(myOptions.getNumericOption(), [123])
 
    def testNumericValueFormatterThrowsOnInvalidDecimalNumber(self):
       cli = Cli(MyOptions)
@@ -57,7 +57,7 @@ class TestCliWithValueFormatter(object):
 
    def testNumericValueFormatterReturnsOctalNumberAsNumberType(self):
       myOptions = Cli(MyOptions).parseArguments(['--numericOption', '017'])
-      assert_equals(myOptions.getNumericOption(), 017)
+      assert_equals(myOptions.getNumericOption(), [017])
 
    def testNumericValueFormatterThrowsOnInvalidOctalNumber(self):
       cli = Cli(MyOptions)
@@ -65,7 +65,7 @@ class TestCliWithValueFormatter(object):
 
    def testNumericValueFormatterReturnsBinaryNumberAsNumberType(self):
       myOptions = Cli(MyOptions).parseArguments(['--numericOption', '0b1010'])
-      assert_equals(myOptions.getNumericOption(), 0b1010)
+      assert_equals(myOptions.getNumericOption(), [0b1010])
 
    def testNumericValueFormatterThrowsOnInvalidBinaryNumber(self):
       cli = Cli(MyOptions)

@@ -15,6 +15,10 @@ class MyOptions(object):
    @positional(2)
    def getPositionalArgumentB(self): pass
 
+class SinglePositionalOptions(object):
+   @positional(1)
+   def getPositionalArgumentA(self): pass
+
 class RandomPositionsOptions(object):
    @positional(8)
    def getPositionalArgument8(self, valueFormatter=NUMERIC_VALUE_FORMATTER): pass
@@ -85,6 +89,10 @@ class TestCliWithPositional(object):
       assert_equals(myOptions.getOptionalB(), 'B')
       assert_equals(myOptions.getPositionalArgumentA(), 'pA')
       assert_equals(myOptions.getPositionalArgumentB(), 'pB')
+
+   def testSinglePositionalArgumentRetrievedAsAValue(self):
+      myOptions = Cli(SinglePositionalOptions).parseArguments(['pA'])
+      assert_equals(myOptions.getPositionalArgumentA(), 'pA')
 
    def testPositionalArgumentsWithRandomPositionValuesRetrievedInCorrectOrder(self):
       myOptions = Cli(RandomPositionsOptions).parseArguments(['1', '2', '3'])
