@@ -2,11 +2,14 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
-from Cli import NUMERIC_VALUE_FORMATTER
+from Cli import option
 from Cli import positional
 
 class MyOptions(object):
+   @option
    def getOptionalA(self): pass
+
+   @option
    def getOptionalB(self): pass
 
    @positional(1)
@@ -25,16 +28,17 @@ class SinglePositionalOptions(object):
 
 class RandomPositionsOptions(object):
    @positional(8)
-   def getPositionalArgument8(self, valueFormatter=NUMERIC_VALUE_FORMATTER): pass
+   def getPositionalArgument8(self): pass
 
    @positional(12)
-   def getPositionalArgument12(self, valueFormatter=NUMERIC_VALUE_FORMATTER): pass
+   def getPositionalArgument12(self): pass
 
    @positional(-1)
-   def getPositionalArgumentMinus1(self, valueFormatter=NUMERIC_VALUE_FORMATTER): pass
+   def getPositionalArgumentMinus1(self): pass
 
 class MultiValuedAndPositionalOptions(object):
-   def getOption(self, multiValued): pass
+   @option(multiValued=True)
+   def getOption(self): pass
 
    @positional(1)
    def getPositionalArgumentA(self): pass
@@ -48,30 +52,6 @@ class BadDuplicatePosition(object):
 
    @positional(1)
    def getPositionalArgumentB(self): pass
-
-class BadShortName(object):
-   @positional(1)
-   def getPositionalArgumentA(self, shortName='a'): pass
-
-class BadDefault(object):
-   @positional(1)
-   def getPositionalArgumentA(self, default=1): pass
-
-class BadMultiValued(object):
-   @positional(1)
-   def getPositionalArgumentA(self, multiValued): pass
-
-class BadMin(object):
-   @positional(1)
-   def getPositionalArgumentA(self, min=1): pass
-
-class BadMax(object):
-   @positional(1)
-   def getPositionalArgumentA(self, max=1): pass
-
-class BadMandatory(object):
-   @positional(1)
-   def getPositionalArgumentA(self, mandatory): pass
 
 class TestCliWithPositional(object):
    def testMissingPositionalArgumentsThrows(self):
@@ -134,9 +114,9 @@ class TestCliWithPositional(object):
 
    def testPositionalArgumentsWithRandomPositionValuesRetrievedInCorrectOrder(self):
       myOptions = Cli(RandomPositionsOptions).parseArguments(['1', '2', '3'])
-      assert_equals(myOptions.getPositionalArgumentMinus1(), 1)
-      assert_equals(myOptions.getPositionalArgument8(), 2)
-      assert_equals(myOptions.getPositionalArgument12(), 3)
+      assert_equals(myOptions.getPositionalArgumentMinus1(), '1')
+      assert_equals(myOptions.getPositionalArgument8(), '2')
+      assert_equals(myOptions.getPositionalArgument12(), '3')
 
    def testPositionalArgumentsAfterMultiValuedOptionalRetrievedCorrectly(self):
       myOptions = Cli(MultiValuedAndPositionalOptions).parseArguments(['--option', 'A', 'B', 'C', 'pA', 'pB'])
@@ -156,24 +136,6 @@ class TestCliWithPositional(object):
 
    def testDuplicatePositionsThrows(self):
       assert_raises(CliParseError, Cli, BadDuplicatePosition)
-
-   def testShortNameOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadShortName)
-
-   def testDefaultOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadDefault)
-
-   def testMultiValuedOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadMultiValued)
-
-   def testMandatoryOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadMandatory)
-
-   def testMinOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadMin)
-
-   def testMaxOnPositionalArgumentThrows(self):
-      assert_raises(CliParseError, Cli, BadMax)
 
 if __name__ == '__main__':
    import sys, inspect, nose

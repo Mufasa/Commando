@@ -2,19 +2,33 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import positional
+from Cli import option
 
 PURPOSE = 'This is where you would describe the purpose of the program using these options'
 
 class MyOptions(object):
+   @option
    def isDeleteFiles(self):
       'do you want to delete files'
       pass
+
+   @option
    def getSimpleOption(self): pass
-   def getOptionWithDefault(self, default='123'): pass
-   def getOptionWithDefaultList(self, multiValued, default=['123', '456']): pass
-   def getOptionWithShortName(self, shortName='o'): pass
-   def isBooleanOptionWithShortName(self, shortName='i'): pass
-   def getOptionWithDefaultAndShortName(self, default='999', shortName='t'):
+
+   @option(default='123')
+   def getOptionWithDefault(self): pass
+
+   @option(multiValued=True, default=['123', '456'])
+   def getOptionWithDefaultList(self): pass
+
+   @option(shortName='o')
+   def getOptionWithShortName(self): pass
+
+   @option(shortName='i')
+   def isBooleanOptionWithShortName(self): pass
+
+   @option(default='999', shortName='t')
+   def getOptionWithDefaultAndShortName(self):
       'specific help on this option'
       pass
 

@@ -1,11 +1,14 @@
 from nose.tools import *
 
 from Cli import Cli
+from Cli import option
 
 class ParentOptions(object):
+   @option
    def isDeleteFiles(self): pass
 
 class MyOptions(ParentOptions):
+   @option
    def getSimpleOption(self): pass
 
 class TestCliWithInheritance(object):

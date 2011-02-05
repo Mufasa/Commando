@@ -1,6 +1,28 @@
-Cli v1.0.0
+Cli v2.0.0
 ==========
-- Initial version
+- Interface changed to make consistent use of decorators to define the options
+
+Cli v1.1.4
+==========
+- Improved error checking for missing positional arguments
+
+Cli v1.1.3
+==========
+- Now restricts value passed to @positional decorator to integers
+- Added tests for boolean positional arguments
+
+Cli v1.1.2
+==========
+- Help text for multi-valued options with a specified "min" now displays them as mandatory
+
+Cli v1.1.1
+==========
+- Multi-valued options now always return values as a list (even if only one value specified)
+
+Cli v1.1.0
+==========
+1. Added ability to specify positional arguments
+2. Added tests to cover invalid shortName specifications
 
 Cli v1.0.1
 ==========
@@ -8,24 +30,6 @@ Cli v1.0.1
 2. Added ability to specify the min/max number of values allowed for a
 multi-valued option
 
-Cli v1.1.0
+Cli v1.0.0
 ==========
-1. Added ability to specify positional arguments
-2. Added tests to cover invalid shortName specifications
-
-Cli v1.1.1
-==========
-- Multi-valued options now always return values as a list (even if only one value specified)
-
-Cli v1.1.2
-==========
-- Help text for multi-valued options with a specified "min" now displays them as mandatory
-
-Cli v1.1.3
-==========
-- Now restricts value passed to @positional decorator to integers
-- Added tests for boolean positional arguments
-
-Cli v1.1.4
-==========
-- Improved error checking for missing positional arguments
+- Initial version

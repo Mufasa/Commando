@@ -2,32 +2,73 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliHelpError
+from Cli import option
 from Cli import positional
 
 class MyOptions(object):
+   @option
    def isDeleteFiles(self): pass
+
+   @option
    def getSimpleOption(self): pass
-   def getOptionWithDefault(self, default='123'): pass
-   def getOptionWithDefaultList(self, multiValued, default=['123', '456']): pass
-   def getOptionWithShortName(self, shortName='o'): pass
-   def isBooleanOptionWithShortName(self, shortName='i'): pass
-   def getOptionWithDefaultAndShortName(self, default=999, shortName='t'): pass
-   def getOptionWithMin1(self, multiValued, min=1): pass
-   def getOptionWithMin2(self, multiValued, min=2): pass
-   def getOptionWithMin3(self, multiValued, min=3): pass
-   def getOptionWithMax2(self, multiValued, max=2): pass
-   def getOptionWithMax3(self, multiValued, max=3): pass
-   def getOptionWithMin1Max2(self, multiValued, min=1, max=2): pass
-   def getOptionWithMin1Max3(self, multiValued, min=1, max=3): pass
-   def getOptionWithMin2Max2(self, multiValued, min=2, max=2): pass
-   def getOptionWithMin2Max3(self, multiValued, min=2, max=3): pass
-   def getOptionWithMin2Max4(self, multiValued, min=2, max=4): pass
-   def getOptionWithMin3Max3(self, multiValued, min=3, max=3): pass
-   def getOptionWithMin3Max4(self, multiValued, min=3, max=4): pass
-   def getOptionWithMin3Max5(self, multiValued, min=3, max=5): pass
+
+   @option(default='123')
+   def getOptionWithDefault(self): pass
+
+   @option(multiValued=True, default=['123', '456'])
+   def getOptionWithDefaultList(self): pass
+
+   @option(shortName='o')
+   def getOptionWithShortName(self): pass
+
+   @option(shortName='i')
+   def isBooleanOptionWithShortName(self): pass
+
+   @option(default=999, shortName='t')
+   def getOptionWithDefaultAndShortName(self): pass
+
+   @option(multiValued=True, min=1)
+   def getOptionWithMin1(self): pass
+
+   @option(multiValued=True, min=2)
+   def getOptionWithMin2(self): pass
+
+   @option(multiValued=True, min=3)
+   def getOptionWithMin3(self): pass
+
+   @option(multiValued=True, max=2)
+   def getOptionWithMax2(self): pass
+
+   @option(multiValued=True, max=3)
+   def getOptionWithMax3(self): pass
+
+   @option(multiValued=True, min=1, max=2)
+   def getOptionWithMin1Max2(self): pass
+
+   @option(multiValued=True, min=1, max=3)
+   def getOptionWithMin1Max3(self): pass
+
+   @option(multiValued=True, min=2, max=2)
+   def getOptionWithMin2Max2(self): pass
+
+   @option(multiValued=True, min=2, max=3)
+   def getOptionWithMin2Max3(self): pass
+
+   @option(multiValued=True, min=2, max=4)
+   def getOptionWithMin2Max4(self): pass
+
+   @option(multiValued=True, min=3, max=3)
+   def getOptionWithMin3Max3(self): pass
+
+   @option(multiValued=True, min=3, max=4)
+   def getOptionWithMin3Max4(self): pass
+
+   @option(multiValued=True, min=3, max=5)
+   def getOptionWithMin3Max5(self): pass
 
    @positional(1)
    def getArgumentA(self): pass
+
    @positional(2)
    def getArgumentB(self): pass
 

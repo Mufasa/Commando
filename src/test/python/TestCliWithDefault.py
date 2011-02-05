@@ -2,12 +2,15 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
+from Cli import option
 
 class MyOptions(object):
-   def getOptionWithDefault(self, default='123'): pass
+   @option(default='123')
+   def getOptionWithDefault(self): pass
 
 class BooleanOptionWithDefaultSpecified(object):
-   def isBadOption(self, default=True): pass
+   @option(default=True)
+   def isBadOption(self): pass
 
 class TestCliWithDefault(object):
    def testUnspecifiedNonBooleanOptionWithDefaultReturnsDefault(self):

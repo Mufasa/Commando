@@ -2,17 +2,34 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
+from Cli import option
+from Cli import positional
 from Cli import DIGIT_STRING_VALUE_FORMATTER
 from Cli import NUMERIC_VALUE_FORMATTER
 from Cli import STRING_VALUE_FORMATTER
 
 class MyOptions(object):
+   @option
    def getSimpleOption(self): pass
-   def getSimpleWithDefaultOption(self, default=123): pass
-   def getSimpleWithDefaultListOption(self, multiValued, default=[123, '456']): pass
-   def getStringOption(self, valueFormatter=STRING_VALUE_FORMATTER): pass
-   def getDigitStringOption(self, valueFormatter=DIGIT_STRING_VALUE_FORMATTER): pass
-   def getNumericOption(self, multiValued, valueFormatter=NUMERIC_VALUE_FORMATTER): pass
+
+   @option(default=123)
+   def getSimpleWithDefaultOption(self): pass
+
+   @option(multiValued=True, default=[123, '456'])
+   def getSimpleWithDefaultListOption(self): pass
+
+   @option(valueFormatter=STRING_VALUE_FORMATTER)
+   def getStringOption(self): pass
+
+   @option(valueFormatter=DIGIT_STRING_VALUE_FORMATTER)
+   def getDigitStringOption(self): pass
+
+   @option(multiValued=True, valueFormatter=NUMERIC_VALUE_FORMATTER)
+   def getNumericOption(self): pass
+
+class MyPositionalArguments(object):
+   @positional(1, valueFormatter=NUMERIC_VALUE_FORMATTER)
+   def getSize(self): pass
 
 class TestCliWithValueFormatter(object):
    def testNoValueFormatterSpecifiedReturnsStringType(self):
@@ -70,6 +87,10 @@ class TestCliWithValueFormatter(object):
    def testNumericValueFormatterThrowsOnInvalidBinaryNumber(self):
       cli = Cli(MyOptions)
       assert_raises(CliParseError, cli.parseArguments, ['--numericOption', '0b222'])
+
+   def testPositionalArgumentsCanHaveValueFormatter(self):
+      myPositionalArguments = Cli(MyPositionalArguments).parseArguments(['1024'])
+      assert_equals(myPositionalArguments.getSize(), 1024)
 
 if __name__ == '__main__':
    import sys, inspect, nose

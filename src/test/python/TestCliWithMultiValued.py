@@ -2,55 +2,62 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
+from Cli import option
 
 class MyOptions(object):
+   @option
    def getSingleValuedOption(self): pass
-   def getMultiValuedOption(self, multiValued, default=['abc', 'def']): pass
+
+   @option(multiValued=True, default=['abc', 'def'])
+   def getMultiValuedOption(self): pass
 
 class OptionWithMin(object):
-   def getOption(self, multiValued, min=1): pass
+   @option(multiValued=True, min=1)
+   def getOption(self): pass
 
 class OptionWithMax(object):
-   def getOption(self, multiValued, max=3): pass
+   @option(multiValued=True, max=3)
+   def getOption(self): pass
 
 class BadSingleValuedOption(object):
-   def getSingleValuedOption(self, default=['x', 'y']): pass
+   @option(default=['x', 'y'])
+   def getSingleValuedOption(self): pass
 
 class BadMultiValuedDefaultOption(object):
-   def getOption(self, multiValued, default='abc'): pass
+   @option(multiValued=True, default='abc')
+   def getOption(self): pass
 
 class BadMultiValuedBoolenOption(object):
-   def isSomething(self, multiValued): pass
-
-class BadMultiValuedOption(object):
-   def getMultiValuedOption(self, multiValued=True): pass
+   @option(multiValued=True)
+   def isSomething(self): pass
 
 class BadMinUsageOnNonMultiValuedOption(object):
-   def getOption(self, min=1): pass
+   @option(min=1)
+   def getOption(self): pass
 
 class BadMaxUsageOnNonMultiValuedOption(object):
-   def getOption(self, max=1): pass
+   @option(max=1)
+   def getOption(self): pass
 
 class BadMinLessThanZeroOption(object):
-   def getOption(self, multiValued, min= -1): pass
-
-class BadMinDataTypeOption(object):
-   def getOption(self, multiValued, min='a'): pass
+   @option(multiValued=True, min= -1)
+   def getOption(self): pass
 
 class BadMaxLessThanTwoOption(object):
-   def getOption(self, multiValued, max=1): pass
-
-class BadMaxDataTypeOption(object):
-   def getOption(self, multiValued, max='a'): pass
+   @option(multiValued=True, max=1)
+   def getOption(self): pass
 
 class BadMaxLessThanMinOption(object):
-   def getOption(self, multiValued, min=3, max=2): pass
+   @option(multiValued=True, min=3, max=2)
+   def getOption(self): pass
 
 class BadDefaultLessThanMinOption(object):
-   def getOption(self, multiValued, min=2, default=123): pass
+   @option(multiValued=True, min=2, default=[123])
+   def getOption(self): pass
 
 class BadDefaultMoreThanMaxOption(object):
-   def getOption(self, multiValued, max=2, default=[1, 2, 3]): pass
+   @option(multiValued=True, max=2, default=[1, 2, 3])
+   def getOption(self): pass
 
 class TestCliWithMultiValued(object):
    def testUnspecifiedMultiValuedOptionReturnsDefaults(self):
@@ -77,9 +84,6 @@ class TestCliWithMultiValued(object):
    def testSingleValuedOptionThrowsIfMultipleValuesSpecified(self):
       cli = Cli(MyOptions)
       assert_raises(CliParseError, cli.parseArguments, ['--singleValuedOption', 'a', 'b'])
-
-   def testMultiValuedOptionWithValueAgainstMultiValuedAttributeThrows(self):
-      assert_raises(CliParseError, Cli, BadMultiValuedOption)
 
    def testMultiValuedWithMinOptionThrowsIfLessThanMinValuesGiven(self):
       cli = Cli(OptionWithMin)
@@ -109,13 +113,27 @@ class TestCliWithMultiValued(object):
       assert_raises(CliParseError, Cli, BadMinLessThanZeroOption)
 
    def testNonNumericMinOptionThrows(self):
-      assert_raises(CliParseError, Cli, BadMinDataTypeOption)
+      try:
+         class BadMinDataTypeOption(object):
+            @option(multiValued=True, min='a')
+            def getOption(self): pass
+      except:
+         return
+
+      assert False, 'Non int data type for "min" parameter value should not be allowed'
 
    def testMaxOptionLessThanTwoThrows(self):
       assert_raises(CliParseError, Cli, BadMaxLessThanTwoOption)
 
    def testNonNumericMaxOptionThrows(self):
-      assert_raises(CliParseError, Cli, BadMaxDataTypeOption)
+      try:
+         class BadMaxDataTypeOption(object):
+            @option(multiValued=True, max='a')
+            def getOption(self): pass
+      except:
+         return
+
+      assert False, 'Non int data type for "max" parameter value should not be allowed'
 
    def testOptionWithMaxLessThanMinThrows(self):
       assert_raises(CliParseError, Cli, BadMaxLessThanMinOption)

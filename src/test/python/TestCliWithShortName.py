@@ -2,24 +2,36 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
+from Cli import option
 
 class MyOptions(object):
-   def getOptionWithShortName(self, shortName='o'): pass
-   def isBooleanOptionWithShortName(self, shortName='i'): pass
+   @option(shortName='o')
+   def getOptionWithShortName(self): pass
+
+   @option(shortName='i')
+   def isBooleanOptionWithShortName(self): pass
 
 class BadNonStringShortName(object):
-   def getOption(self, shortName=123): pass
+   @option(shortName=123)
+   def getOption(self): pass
 
 class BadDuplicateShortName(object):
-   def getOptionA(self, shortName='a'): pass
-   def getOptionB(self, shortName='a'): pass
+   @option(shortName='a')
+   def getOptionA(self): pass
+
+   @option(shortName='a')
+   def getOptionB(self): pass
 
 class BadShortNameMatchingOwnLongName(object):
-   def getOptionA(self, shortName='optionA'): pass
+   @option(shortName='optionA')
+   def getOptionA(self): pass
 
 class BadShortNameMatchingOtherLongName(object):
-   def getOptionA(self, shortName='a'): pass
-   def getOptionB(self, shortName='optionA'): pass
+   @option(shortName='a')
+   def getOptionA(self): pass
+
+   @option(shortName='optionA')
+   def getOptionB(self): pass
 
 class TestCliWithShortName(object):
    def testOptionWithShortNameCanBeSpecifiedUsingLongName(self):

@@ -5,7 +5,10 @@ Python does not have the ability to define an interface, this is achieved
 here by using the "pass" keyword to define a standard Python class where
 every method is a NOP, e.g.:
      class MyOptions(object):
+        @option
         def getFilePath(self): pass
+
+        @option
         def isRecursive(self): pass
 
 This library was inspired by both Pythons built-in optparse module and the
@@ -27,7 +30,8 @@ The Cli library has the following features:
           - Numeric (allows decimal, hexadecimal, binary, octal integers)
      - Ability to specify positional arguments
 
-Every option is defined by a method whose name either starts with "get" or "is".
+Every option annotated with a @option or @positional decorator. The decorated
+methods must have a name that starts with either "get" or "is".
 Methods that start with "is" represent boolean options. "is" methods will return
 True if that option was specified, and will return False otherwise.
 
@@ -52,19 +56,27 @@ Typical Usage
 =============
 MyApp.py:
    from Cli import Cli
+   from Cli import option
    from Cli import NUMERIC_VALUE_FORMATTER
 
    class MyOptions(object):
-      def getInputFiles(self, multiValued, mandatory, shortName='f'):
+      @option(multiValued=True, mandatory=True, shortName='f')
+      def getInputFiles(self):
          'List of input files to process'
          pass
-      def getOutputFile(self, shortName='o', default='output.csv'):
+         
+      @option(shortName='o', default='output.csv')
+      def getOutputFile(self):
          'Output filename'
          pass
-      def isReplace(self, shortName='r'):
+         
+      @option(shortName='r')
+      def isReplace(self):
          'Do you want to replace the output file if it already exists'
          pass
-      def getMaxOutputSize(self, shortName='m', default=1024, valueFormatter=NUMERIC_VALUE_FORMATTER):
+         
+      @option(shortName='m', default=1024, valueFormatter=NUMERIC_VALUE_FORMATTER)
+      def getMaxOutputSize(self):
          'Maximum size to limit the output file to'
          pass
 
@@ -90,7 +102,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "1.1.4"
+__VERSION__ = __version__ = "2.0.0"
 
 import inspect
 import os
@@ -156,13 +168,120 @@ class CliParseError(CliError):
    def __init__(self, errorMessage):
       CliError.__init__(self, errorMessage)
 
+class option(object):
+   def __init__(self, *args, **kwargs):
+      if len(args) == 0:
+         self.__options = kwargs
+      elif len(args) == 1:
+         if len(kwargs) == 0:
+            if callable(args[0]):
+               self.__f = args[0]
+               self.__options = {}
+            else:
+               raise CliParseError('@option: Expected single implicit parameter to be the callable method being annotated. Found: %s of %s' % (args[0], type(args[0])))
+         else:
+            raise CliParseError('@option: Can either have no parameters or just "named" parameters. Cannot specify both.')
+      else:
+         raise CliParseError('@option: Invalid non-keyword arguments given: %s' % args)
+
+      self.__mandatory = None
+      self.__multiValued = None
+      self.__min = None
+      self.__max = None
+      self.__valueFormatter = None
+
+   def __call__(self, f=None):
+      if f is not None:
+         self.__validateOptions(f.__name__)
+         self.__f = f
+         return self
+
+   @property
+   def wrappedMethod(self):
+      return self.__f
+
+   @property
+   def shortName(self):
+      return self.__options['shortName'] if self.__options.has_key('shortName') else None
+
+   @property
+   def default(self):
+      return self.__options['default'] if self.__options.has_key('default') else None
+
+   @property
+   def mandatory(self):
+      return self.__mandatory
+
+   @property
+   def multiValued(self):
+      return self.__multiValued
+
+   @property
+   def min(self):
+      return self.__min
+
+   @property
+   def max(self):
+      return self.__max
+
+   @property
+   def valueFormatter(self):
+      return self.__valueFormatter
+
+   __SUPPORTED_OPTIONS = ['shortName', 'default', 'mandatory', 'multiValued', 'min', 'max', 'valueFormatter']
+
+   def __validateOptions(self, wrappedMethodName):
+      unrecognisedOptions = []
+      for optionName in self.__options.keys():
+         if optionName not in option.__SUPPORTED_OPTIONS:
+            unrecognisedOptions.append(optionName)
+
+      if len(unrecognisedOptions) > 0:
+         raise CliParseError('@option for %s: Unrecognised options "%s". Valid options are: %s' % (wrappedMethodName, unrecognisedOptions, option.__SUPPORTED_OPTIONS))
+
+      self.__mandatory = option.__getBoolValue(wrappedMethodName, self.__options, 'mandatory')
+      self.__multiValued = option.__getBoolValue(wrappedMethodName, self.__options, 'multiValued')
+      self.__min = option.__getIntValue(wrappedMethodName, self.__options, 'min')
+      self.__max = option.__getIntValue(wrappedMethodName, self.__options, 'max')
+      self.__valueFormatter = option.__getCallableValue(wrappedMethodName, self.__options, 'valueFormatter')
+
+   @classmethod
+   def __getBoolValue(cls, wrappedMethodName, options, optionName):
+      if optionName in options.keys():
+         if isinstance(options[optionName], bool):
+            return options[optionName]
+         else:
+            raise CliParseError('@option for %s: Invalid parameter value "%s" of %s for "%s". Must be True or False (default=False)' % (wrappedMethodName, options[optionName], type(options[optionName]), optionName))
+      else:
+         return None
+
+   @classmethod
+   def __getIntValue(cls, wrappedMethodName, options, optionName):
+      if optionName in options.keys():
+         if isinstance(options[optionName], int):
+            return options[optionName]
+         else:
+            raise CliParseError('@option for %s: Invalid parameter value "%s" of %s for "%s". Must be an int' % (wrappedMethodName, options[optionName], type(options[optionName]), optionName))
+      else:
+         return None
+
+   @classmethod
+   def __getCallableValue(cls, wrappedMethodName, options, optionName):
+      if optionName in options.keys():
+         if callable(options[optionName]):
+            return options[optionName]
+         else:
+            raise CliParseError('@option for %s: Invalid parameter value "%s" of %s for "%s". Must be callable' % (wrappedMethodName, options[optionName], type(options[optionName]), optionName))
+      else:
+         return None
+
 class positional(object):
-   def __init__(self, relativePosition):
+   def __init__(self, relativePosition, valueFormatter=None):
       self.__relativePosition = relativePosition
+      self.__valueFormatter = valueFormatter
 
    def __call__(self, f):
-      if type(self.__relativePosition) != int:
-         raise CliParseError('Positional value for method "%s" must be an integer. Found "%s" of %s' % (f.__name__, self.__relativePosition, type(self.__relativePosition)))
+      self.__validateOptions(f.__name__)
       self.__f = f
       return self
 
@@ -171,8 +290,18 @@ class positional(object):
       return self.__relativePosition
 
    @property
+   def valueFormatter(self):
+      return self.__valueFormatter
+
+   @property
    def wrappedMethod(self):
       return self.__f
+
+   def __validateOptions(self, wrappedMethodName):
+      if not isinstance(self.__relativePosition, int):
+         raise CliParseError('@positional for %s: Invalid parameter value "%s" of %s for "relativePosition". Must be an int.' % (wrappedMethodName, self.__relativePosition, type(self.__relativePosition)))
+      if self.__valueFormatter is not None and not callable(self.__valueFormatter):
+         raise CliParseError('@positional for %s: Invalid parameter value "%s" of %s for "valueFormatter". Must be callable' % (wrappedMethodName, self.__valueFormatter, type(self.__valueFormatter)))
 
 class Cli(object):
    '''Provides access to command line arguments using the given
@@ -196,19 +325,24 @@ class Cli(object):
       for methodName in dir(optionsClass):
          if methodName.startswith('get') or methodName.startswith('is'):
             method = getattr(optionsClass, methodName)
-            if callable(method):
-               if inspect.isclass(type(method)) and method.__class__.__name__ == 'positional':
-                  position = method.relativePosition
-                  method = method.wrappedMethod
-               else:
-                  position = None
-               try:
-                  methodArgs, varargs, varkw, defaults = inspect.getargspec(method) #@UnusedVariable
-               except TypeError:
-                  raise RuntimeError('Could not get argument specification for %r' % method)
-               if inspect.ismethod(method) or position is not None:
-                  methodArgs = methodArgs[1:]  # Skip 'self'
-               supportedOptions[methodName] = _OptionDescription(optionsClass, methodName, methodArgs, defaults, position, method.__doc__)
+            if callable(method) and inspect.isclass(type(method)):
+               if method.__class__.__name__ == 'option':
+                  supportedOptions[methodName] = _OptionDescription(optionsClass,
+                                                                    methodName,
+                                                                    method.wrappedMethod.__doc__,
+                                                                    method.shortName,
+                                                                    method.default,
+                                                                    method.mandatory,
+                                                                    method.multiValued,
+                                                                    method.min,
+                                                                    method.max,
+                                                                    method.valueFormatter)
+               elif method.__class__.__name__ == 'positional':
+                  supportedOptions[methodName] = _PositionalDescription(optionsClass,
+                                                                        methodName,
+                                                                        method.wrappedMethod.__doc__,
+                                                                        method.relativePosition,
+                                                                        method.valueFormatter)
 
       cls.__validateShortNames(supportedOptions)
       cls.__validatePositionalArguments(supportedOptions)
@@ -316,7 +450,7 @@ class Cli(object):
             defaultValue = ' '
 
          helpText = format % (longName, shortName, helpTextComponents['value'], defaultValue)
-         if option.hasDocString():
+         if option.hasDocString:
             helpText += ' ' + helpTextComponents['docString']
 
          helpTextLines.append(helpText)
@@ -334,23 +468,18 @@ class Cli(object):
       '''
       if args is None:
          return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, sys.argv[1:])
-      else:
+      elif isinstance(args, list):
          return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, args[:])
+      else:
+         raise CliParseError('args must be of type "list". Found "%s"' % type(args))
 
-class _OptionDescription(object):
-   'Representation of a single option'
-   def __init__(self, optionsClass, methodName, methodArgs, defaults, position, methodDocString):
+class _Description(object):
+   def __init__(self, optionsClass, methodName, methodDocString, valueFormatter):
       self.__optionsClass = optionsClass
       self.__methodName = methodName
-      self.__defaults = defaults
-      self.__position = position
       self.__methodDocString = methodDocString
       self.__isBooleanMethod = methodName.startswith('is')
-      self.__isMandatory = 'mandatory' in methodArgs
-      self.__isMultiValued = 'multiValued' in methodArgs
-      self.__hasDefault = 'default' in methodArgs
-      self.__hasShortName = 'shortName' in methodArgs
-      self.__hasValueFormatter = 'valueFormatter' in methodArgs
+      self.__valueFormatter = STRING_VALUE_FORMATTER if valueFormatter is None else valueFormatter
 
       if self.__isBooleanMethod:
          methodSuffix = methodName[2:]
@@ -358,110 +487,6 @@ class _OptionDescription(object):
          methodSuffix = methodName[3:]
 
       self.__name = methodSuffix[0].lower() + methodSuffix[1:]
-      self.__valueFormatter = STRING_VALUE_FORMATTER
-      if self.__defaults is not None:
-         defaultsOffset = len(methodArgs) - len(defaults)
-      else:
-         defaultsOffset = None
-      self.__minCount = None
-      self.__maxCount = None
-      self.__methodArgs = []
-      unrecognisedArgs = []
-      for index in range(0, len(methodArgs)):
-         methodArg = methodArgs[index]
-         if methodArg == 'shortName':
-            self.__shortName = self.__defaults[index - defaultsOffset]
-            self.__methodArgs.append('%s=%r' % (methodArg, self.__shortName))
-         elif methodArg == 'default':
-            self.__defaultValue = defaults[index - defaultsOffset]
-            self.__methodArgs.append('%s=%r' % (methodArg, self.__defaultValue))
-         elif methodArg == 'valueFormatter':
-            self.__valueFormatter = self.__defaults[index - defaultsOffset]
-            self.__methodArgs.append('%s=%r' % (methodArg, self.__valueFormatter))
-         elif methodArg == 'min':
-            self.__minCount = self.__defaults[index - defaultsOffset]
-            self.__methodArgs.append('%s=%r' % (methodArg, self.__minCount))
-         elif methodArg == 'max':
-            self.__maxCount = self.__defaults[index - defaultsOffset]
-            self.__methodArgs.append('%s=%r' % (methodArg, self.__maxCount))
-         elif methodArg != 'mandatory' and methodArg != 'multiValued':
-            unrecognisedArgs.append(methodArg)
-         else:
-            self.__methodArgs.append(methodArg)
-
-      self.__validate(methodArgs, unrecognisedArgs, defaultsOffset)
-
-   def __validate(self, methodArgs, unrecognisedArgs, defaultsOffset):
-      if len(unrecognisedArgs) > 0:
-         raise CliParseError('Unrecognised arguments "%s" in %s' % (', '.join(unrecognisedArgs), self))
-
-      if self.__position is not None:
-         if self.__hasShortName:
-            raise CliParseError('Positional argument %s cannot have a "shortName"' % self)
-         elif self.__hasDefault:
-            raise CliParseError('Positional argument %s cannot have a "default"' % self)
-         elif self.__isMultiValued:
-            raise CliParseError('Positional argument %s cannot be marked as "multiValued"' % self)
-         elif self.__isMandatory:
-            raise CliParseError('Positional argument %s cannot be marked as "mandatory"' % self)
-         elif self.__minCount is not None:
-            raise CliParseError('Positional argument %s cannot have "min" specified' % self)
-         elif self.__maxCount is not None:
-            raise CliParseError('Positional argument %s cannot have "max" specified' % self)
-
-      if self.__isBooleanMethod:
-         if self.__hasDefault:
-            raise CliParseError('Boolean option %s cannot have a "default"' % self)
-         elif self.__isMultiValued:
-            raise CliParseError('Boolean option %s cannot be marked as "multiValued"' % self)
-         elif self.__hasValueFormatter:
-            raise CliParseError('Boolean option %s cannot have a "valueFormatter"' % self)
-
-      if self.__hasDefault:
-         if self.__isMandatory:
-            raise CliParseError('Mandatory option %s cannot have "default" values' % self)
-         elif not self.__isMultiValued and type(self.__defaultValue) == list and len(self.__defaultValue) > 1:
-            raise CliParseError('Single-valued option %s cannot have multiple "default" values' % self)
-
-      if not self.__isMultiValued:
-         if self.__minCount is not None:
-            raise CliParseError('Single-valued option %s cannot have "min" specified' % self)
-         elif self.__maxCount is not None:
-            raise CliParseError('Single-valued option %s cannot have "max" specified' % self)
-      else:
-         if self.__minCount is not None:
-            if type(self.__minCount) != int:
-               raise CliParseError('Multi-valued option %s has a non-numeric "min" value' % self)
-            elif self.__minCount < 0:
-               raise CliParseError('Multi-valued option %s cannot have "min" less than zero' % self)
-         if self.__maxCount is not None:
-            if type(self.__maxCount) != int:
-               raise CliParseError('Multi-valued option %s has a non-numeric "max" value' % self)
-            elif self.__maxCount < 2:
-               raise CliParseError('Multi-valued option %s cannot have "max" less than two' % self)
-            elif self.__minCount is not None and self.__maxCount < self.__minCount:
-               raise CliParseError('Multi-valued option %s cannot have "max" less than "min"' % self)
-         if self.__hasDefault:
-            if type(self.__defaultValue) != list:
-               raise CliParseError('Multi-valued option %s must have "default" values defined as a "list"' % self)
-            defaultCount = len(self.__defaultValue)
-            if self.__minCount is not None and defaultCount < self.__minCount:
-               raise CliParseError('Multi-valued option %s must have at least %d "default" values' % (self, self.__minCount))
-            elif self.__maxCount is not None and defaultCount > self.__maxCount:
-               raise CliParseError('Multi-valued option %s must have at most %d "default" values' % (self, self.__maxCount))
-
-      if not callable(self.__valueFormatter):
-         raise CliParseError('Option %s has a non-callable valueFormatter.' % self)
-
-      if defaultsOffset is not None:
-         self.__validateMarkerAttribute('mandatory', methodArgs, defaultsOffset)
-         self.__validateMarkerAttribute('multiValued', methodArgs, defaultsOffset)
-
-   def __validateMarkerAttribute(self, attributeName, methodArgs, defaultsOffset):
-      if attributeName in methodArgs:
-         index = methodArgs.index(attributeName)
-         if index >= defaultsOffset:
-            raise CliParseError('Option %s has a badly formed "%s" marker (%s=%r). "%s" should not be assigned any value.' % (self, attributeName, attributeName, self.__defaults[index - defaultsOffset], attributeName))
 
    def formatValue(self, value):
       if type(value) == list:
@@ -486,11 +511,95 @@ class _OptionDescription(object):
 
    @property
    def hasPosition(self):
-      return self.__position is not None
+      return False
 
    @property
-   def position(self):
-      return self.__position
+   def isMandatory(self):
+      return False
+
+   @property
+   def isMultiValued(self):
+      return False
+
+   @property
+   def hasMinCount(self):
+      return False
+
+   @property
+   def hasMaxCount(self):
+      return False
+
+   @property
+   def hasDefault(self):
+      return False
+
+   @property
+   def hasShortName(self):
+      return False
+
+   @property
+   def hasDocString(self):
+      return self.__methodDocString is not None
+
+   @property
+   def docString(self):
+      return self.__methodDocString
+
+   def __str__(self):
+      return '%s.%s' % (self.__optionsClass.__name__, self.__methodName)
+
+class _OptionDescription(_Description):
+   'Representation of a single option'
+   def __init__(self, optionsClass, methodName, methodDocString, shortName, default, isMandatory, isMultiValued, minCount, maxCount, valueFormatter):
+      _Description.__init__(self, optionsClass, methodName, methodDocString, valueFormatter)
+      self.__shortName = shortName
+      self.__default = default
+      self.__isMandatory = isMandatory
+      self.__isMultiValued = isMultiValued
+      self.__minCount = minCount
+      self.__maxCount = maxCount
+
+      self.__validate()
+
+   def __validate(self):
+      if self.isBoolean:
+         if self.__default is not None:
+            raise CliParseError('Boolean option %s cannot have a "default"' % self)
+         elif self.isMultiValued:
+            raise CliParseError('Boolean option %s cannot be marked as "multiValued"' % self)
+
+      if self.__default is not None:
+         if self.isMandatory:
+            raise CliParseError('Mandatory option %s cannot have "default" values' % self)
+         elif not self.isMultiValued and type(self.__default) == list and len(self.__default) > 1:
+            raise CliParseError('Single-valued option %s cannot have multiple "default" values' % self)
+
+      if not self.isMultiValued:
+         if self.hasMinCount:
+            raise CliParseError('Single-valued option %s cannot have "min" specified' % self)
+         elif self.hasMaxCount:
+            raise CliParseError('Single-valued option %s cannot have "max" specified' % self)
+      else:
+         if self.hasMinCount:
+            if type(self.minCount) != int:
+               raise CliParseError('Multi-valued option %s has a non-numeric "min" value' % self)
+            elif self.minCount < 0:
+               raise CliParseError('Multi-valued option %s cannot have "min" less than zero' % self)
+         if self.hasMaxCount:
+            if type(self.maxCount) != int:
+               raise CliParseError('Multi-valued option %s has a non-numeric "max" value' % self)
+            elif self.maxCount < 2:
+               raise CliParseError('Multi-valued option %s cannot have "max" less than two' % self)
+            elif self.hasMinCount and self.maxCount < self.minCount:
+               raise CliParseError('Multi-valued option %s cannot have "max" less than "min"' % self)
+         if self.__default is not None:
+            if type(self.__default) != list:
+               raise CliParseError('Multi-valued option %s must have "default" values defined as a "list"' % self)
+            defaultCount = len(self.__default)
+            if self.hasMinCount and defaultCount < self.minCount:
+               raise CliParseError('Multi-valued option %s must have at least %d "default" values' % (self, self.minCount))
+            elif self.hasMaxCount and defaultCount > self.maxCount:
+               raise CliParseError('Multi-valued option %s must have at most %d "default" values' % (self, self.maxCount))
 
    @property
    def isMandatory(self):
@@ -518,99 +627,118 @@ class _OptionDescription(object):
 
    @property
    def hasDefault(self):
-      return self.__hasDefault or self.__isBooleanMethod
+      return self.isBoolean or self.__default is not None
 
    @property
    def default(self):
-      return False if self.__isBooleanMethod else self.formatValue(self.__defaultValue)
+      return self.formatValue(False) if self.isBoolean else self.formatValue(self.__default)
 
    @property
    def hasShortName(self):
-      return self.__hasShortName
+      return self.__shortName is not None
 
    @property
    def shortName(self):
       return self.__shortName
 
-   def hasDocString(self):
-      return self.__methodDocString is not None
-
    @property
    def helpTextComponents(self):
       components = {}
 
-      if self.hasPosition:
-         usageText = self.__name
-         components['longName'] = self.__name
+      longName = '--' + self.name
+      components['longName'] = longName
+      usageText = longName
+
+      if self.hasShortName:
+         shortName = '-' + self.shortName
+         components['shortName'] = shortName
+         usageText += ', ' + shortName
+      else:
          components['shortName'] = ''
+
+      if self.isBoolean:
          components['value'] = ''
       else:
-         longName = '--' + self.__name
-         components['longName'] = longName
-         usageText = longName
-
-         if self.hasShortName:
-            shortName = '-' + self.shortName
-            components['shortName'] = shortName
-            usageText += ', ' + shortName
-         else:
-            components['shortName'] = ''
-
-         if self.isBoolean:
-            components['value'] = ''
-         else:
-            if self.isMultiValued:
-               usageText += ' value1 ...'
-               if self.hasMinCount or self.hasMaxCount:
-                  minCount = 1
-                  endValues = ['value2']
-                  if self.hasMinCount:
-                     minCount = self.minCount
-                     endValues = []
-                     if self.minCount == 1:
-                        startValues = ['valueMin1']
-                     elif self.minCount == 2:
-                        startValues = ['value1', 'valueMin2']
-                     else:
-                        startValues = ['value1', '...', 'valueMin%d' % (self.minCount,)]
+         if self.isMultiValued:
+            usageText += ' value1 ...'
+            if self.hasMinCount or self.hasMaxCount:
+               minCount = 1
+               endValues = ['value2']
+               if self.hasMinCount:
+                  minCount = self.minCount
+                  endValues = []
+                  if self.minCount == 1:
+                     startValues = ['valueMin1']
+                  elif self.minCount == 2:
+                     startValues = ['value1', 'valueMin2']
                   else:
-                     startValues = ['value1']
-                  if self.hasMaxCount:
-                     if self.maxCount == minCount:
-                        del startValues[-1]
-                        endValues = ['valueMinMax%d' % minCount]
-                     elif self.maxCount <= minCount + 1:
-                        endValues = ['valueMax%d' % (minCount + 1,)]
-                     else:
-                        endValues = ['...', 'valueMax%d' % self.maxCount]
-                  else:
-                     endValues.append('...')
-                  components['value'] = ' '.join(startValues + endValues)
+                     startValues = ['value1', '...', 'valueMin%d' % (self.minCount,)]
                else:
-                  components['value'] = 'value1 value2 ...'
+                  startValues = ['value1']
+               if self.hasMaxCount:
+                  if self.maxCount == minCount:
+                     del startValues[-1]
+                     endValues = ['valueMinMax%d' % minCount]
+                  elif self.maxCount <= minCount + 1:
+                     endValues = ['valueMax%d' % (minCount + 1,)]
+                  else:
+                     endValues = ['...', 'valueMax%d' % self.maxCount]
+               else:
+                  endValues.append('...')
+               components['value'] = ' '.join(startValues + endValues)
             else:
-               usageText += ' value'
-               components['value'] = 'value'
+               components['value'] = 'value1 value2 ...'
+         else:
+            usageText += ' value'
+            components['value'] = 'value'
 
       if self.hasDefault:
          components['default'] = self.default
       else:
          components['default'] = ''
 
-      if self.hasDocString():
-         components['docString'] = '%s' % self.__methodDocString
+      if self.hasDocString:
+         components['docString'] = '%s' % self.docString
       else:
          components['docString'] = ''
 
-      if self.isMandatory or (self.isMultiValued and self.hasMinCount) or self.hasPosition:
+      if self.isMandatory or (self.isMultiValued and self.hasMinCount):
          components['usage'] = usageText
       else:
          components['usage'] = '[' + usageText + ']'
 
       return components
 
-   def __str__(self):
-      return '%s.%s(%s)' % (self.__optionsClass.__name__, self.__methodName, ', '.join(self.__methodArgs))
+class _PositionalDescription(_Description):
+   'Representation of a single positional argument'
+   def __init__(self, optionsClass, methodName, methodDocString, position, valueFormatter):
+      _Description.__init__(self, optionsClass, methodName, methodDocString, valueFormatter)
+      self.__position = position
+
+   @property
+   def hasPosition(self):
+      return True
+
+   @property
+   def position(self):
+      return self.__position
+
+   @property
+   def helpTextComponents(self):
+      components = {}
+
+      components['usage'] = self.name
+      components['longName'] = self.name
+      components['shortName'] = ''
+      components['value'] = ''
+      components['default'] = ''
+
+      if self.hasDocString:
+         components['docString'] = '%s' % self.docString
+      else:
+         components['docString'] = ''
+
+      return components
 
 class _ParsedOptions(object):
    'Parses the command line options'

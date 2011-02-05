@@ -2,10 +2,17 @@ from nose.tools import *
 
 from Cli import Cli
 from Cli import CliParseError
+from Cli import option
 
 class MyOptions(object):
+   @option
    def isDeleteFiles(self): pass
+
+   @option
    def getSimpleOption(self): pass
+
+   def isIgnoreMe(self): pass
+   def getIgnoreMeToo(self): pass
 
 class TestSimpleCli(object):
    def testNonBooleanOptionWithSingleValueReturnsSpecifiedValue(self):
@@ -35,6 +42,14 @@ class TestSimpleCli(object):
    def testOptionMissingFromInterfaceThrows(self):
       cli = Cli(MyOptions)
       assert_raises(CliParseError, cli.parseArguments, ['--missingFromInterface'])
+
+   def testNonAnnotatedBoolenOptionIgnored(self):
+      cli = Cli(MyOptions)
+      assert_raises(CliParseError, cli.parseArguments, ['--ignoreMe'])
+
+   def testNonAnnotatedNonBoolenOptionIgnored(self):
+      cli = Cli(MyOptions)
+      assert_raises(CliParseError, cli.parseArguments, ['--ignoreMeToo', 123])
 
    def testInvalidOptionFormatThrows(self):
       cli = Cli(MyOptions)

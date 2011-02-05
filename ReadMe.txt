@@ -54,7 +54,10 @@ Python does not have the ability to define an interface, this is achieved
 here by using the "pass" keyword to define a standard Python class where
 every method is a NOP, e.g.:
      class MyOptions(object):
+        @option
         def getFilePath(self): pass
+
+        @option
         def isRecursive(self): pass
 
 This library was inspired by both Pythons built-in optparse module and the
@@ -76,7 +79,8 @@ The Cli library has the following features:
           - Numeric (allows decimal, hexadecimal, binary, octal integers)
      - Ability to specify positional arguments
 
-Every option is defined by a method whose name either starts with "get" or "is".
+Every option annotated with a @option or @positional decorator. The decorated
+methods must have a name that starts with either "get" or "is".
 Methods that start with "is" represent boolean options. "is" methods will return
 True if that option was specified, and will return False otherwise.
 
@@ -101,19 +105,27 @@ Typical Usage
 =============
 MyApp.py:
    from Cli import Cli
+   from Cli import option
    from Cli import NUMERIC_VALUE_FORMATTER
 
    class MyOptions(object):
-      def getInputFiles(self, multiValued, mandatory, shortName='f'):
+      @option(multiValued=True, mandatory=True, shortName='f')
+      def getInputFiles(self):
          'List of input files to process'
          pass
-      def getOutputFile(self, shortName='o', default='output.csv'):
+         
+      @option(shortName='o', default='output.csv')
+      def getOutputFile(self):
          'Output filename'
          pass
-      def isReplace(self, shortName='r'):
+         
+      @option(shortName='r')
+      def isReplace(self):
          'Do you want to replace the output file if it already exists'
          pass
-      def getMaxOutputSize(self, shortName='m', default=1024, valueFormatter=NUMERIC_VALUE_FORMATTER):
+         
+      @option(shortName='m', default=1024, valueFormatter=NUMERIC_VALUE_FORMATTER)
+      def getMaxOutputSize(self):
          'Maximum size to limit the output file to'
          pass
 
