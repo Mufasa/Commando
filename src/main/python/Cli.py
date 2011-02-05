@@ -102,9 +102,10 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "2.0.0"
+__VERSION__ = __version__ = "2.1.0"
 
 import inspect
+import new
 import os
 import sys
 
@@ -467,9 +468,9 @@ class Cli(object):
       If "args" is omitted, then the options are picked up from sys.argv[1:].
       '''
       if args is None:
-         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, sys.argv[1:])
+         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, sys.argv[1:]).optionsInstance
       elif isinstance(args, list):
-         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, args[:])
+         return _ParsedOptions(self.__optionsClass, self.__helpText, self.__options, self.__positionalArguments, args[:]).optionsInstance
       else:
          raise CliParseError('args must be of type "list". Found "%s"' % type(args))
 
@@ -759,12 +760,24 @@ class _ParsedOptions(object):
          argsLeft -= 1;
          state = state.process(arg, argsLeft)
 
-      self.__parsedOptions = context.validateOptions()
+      parsedOptions = context.validateOptions()
+
+      self.__optionsInstance = optionsClass()
+      self.__optionsInstance.__dict__['helpText'] = helpText
+      for methodName in self.__options.keys():
+         optionDescription = self.__options[methodName]
+         if parsedOptions.has_key(optionDescription.name):
+            optionInstance = _Option(self.__optionsClass, optionDescription, parsedOptions[optionDescription.name])
+         elif optionDescription.isBoolean:
+            optionInstance = _Option(self.__optionsClass, optionDescription, False)
+         else:
+            optionInstance = _Option(self.__optionsClass, optionDescription)
+         self.__optionsInstance.__dict__[methodName] = new.instancemethod(_Option.__call__, optionInstance, _Option)
 
    @property
-   def helpText(self):
-      'The help text'
-      return self.__helpText
+   def optionsInstance(self):
+      'The options instance configured to return the parsed command line options'
+      return self.__optionsInstance
 
    def __checkPositionalArguments(self, positionalArguments, args):
       context = _Context(self.__optionsClass, self.__helpText, self.__options, [])
@@ -783,18 +796,6 @@ class _ParsedOptions(object):
             raise CliParseError('Missing values for positional arguments: %s' % missingPositionalArguments)
          elif numberOfMissingPositionalArguments == 1:
             raise CliParseError('Missing value for last positional argument: %s' % missingPositionalArguments)
-
-   def __getattr__(self, name):
-      if self.__options.has_key(name):
-         optionDescription = self.__options[name]
-         if self.__parsedOptions.has_key(optionDescription.name):
-            return _Option(self.__optionsClass, optionDescription, self.__parsedOptions[optionDescription.name])
-         elif optionDescription.isBoolean:
-            return _Option(self.__optionsClass, optionDescription, False)
-         else:
-            return _Option(self.__optionsClass, optionDescription)
-
-      raise CliParseError('%s.%s() not defined' % (self.__optionsClass.__name__, name))
 
 class _Context(object):
    'Context used to hold state information while parsing the command line'

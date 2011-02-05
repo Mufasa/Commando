@@ -1,3 +1,7 @@
+Cli v2.1.0
+==========
+- Instance returned by parseArguments method of Cli is now of the same type as the options class passed into its constructor
+
 Cli v2.0.0
 ==========
 - Interface changed to make consistent use of decorators to define the options

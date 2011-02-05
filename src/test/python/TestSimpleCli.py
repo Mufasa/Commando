@@ -15,6 +15,10 @@ class MyOptions(object):
    def getIgnoreMeToo(self): pass
 
 class TestSimpleCli(object):
+   def testParseArgumentsReturnsAnInstanceOfTheOptionsInterface(self):
+      myOptions = Cli(MyOptions).parseArguments([])
+      assert_true(isinstance(myOptions, MyOptions))
+
    def testNonBooleanOptionWithSingleValueReturnsSpecifiedValue(self):
       myOptions = Cli(MyOptions).parseArguments(['--simpleOption', 'valueA'])
       assert_equals(myOptions.getSimpleOption(), 'valueA')
