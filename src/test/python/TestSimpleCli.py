@@ -11,13 +11,23 @@ class MyOptions(object):
    @option
    def getSimpleOption(self): pass
 
-   def isIgnoreMe(self): pass
-   def getIgnoreMeToo(self): pass
+   def isIgnoreMe(self):
+      return self.isDeleteFiles() and self.getSimpleOption() == 'test'
+
+   def getIgnoreMeToo(self):
+      return self.getSimpleOption().upper()
 
 class TestSimpleCli(object):
    def testParseArgumentsReturnsAnInstanceOfTheOptionsInterface(self):
       myOptions = Cli(MyOptions).parseArguments([])
       assert_true(isinstance(myOptions, MyOptions))
+
+   def testCodeInIgnoredMethodsDoesNotGetOverriden(self):
+      myOptions = Cli(MyOptions).parseArguments(['--deleteFiles', '--simpleOption', 'test'])
+      assert_true(myOptions.isDeleteFiles())
+      assert_equal(myOptions.getSimpleOption(), 'test')
+      assert_true(myOptions.isIgnoreMe())
+      assert_equal(myOptions.getIgnoreMeToo(), 'TEST')
 
    def testNonBooleanOptionWithSingleValueReturnsSpecifiedValue(self):
       myOptions = Cli(MyOptions).parseArguments(['--simpleOption', 'valueA'])

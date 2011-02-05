@@ -102,7 +102,7 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "2.1.0"
+__VERSION__ = __version__ = "2.1.1"
 
 import inspect
 import new

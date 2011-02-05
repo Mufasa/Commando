@@ -1,3 +1,8 @@
+Cli v2.1.1
+==========
+- Added test to demonstrate options class can have non-annotated methods that can contain code that calls the overridden
+  methods containing the values of the parsed command line arguments
+
 Cli v2.1.0
 ==========
 - Instance returned by parseArguments method of Cli is now of the same type as the options class passed into its constructor
