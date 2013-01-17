@@ -102,10 +102,9 @@ Help text for this would be invoked by --help (or -?) and displayed as follows:
    --maxOutputSize, -m value             (default=1024)                       Maximum size to limit the output file to
    --replace,       -r                   (True if specified, otherwise False) Do you want to replace the output file if it already exists
 '''
-__VERSION__ = __version__ = "2.1.2"
+__VERSION__ = __version__ = "3.0.0"
 
 import inspect
-import new
 import os
 import sys
 
@@ -358,13 +357,14 @@ class Cli(object):
 
         options = {}
         positional = {}
+        positions = []
         for option in supportedOptions.values():
             if option.hasPosition:
                 positional[option.position] = option
+                positions.append(option.position)
             else:
                 options[option.methodName] = option
 
-        positions = positional.keys()[:]
         positions.sort()
         positionalArguments = []
         for position in positions:
@@ -414,7 +414,8 @@ class Cli(object):
         maxValueLength = 0
         maxDefaultValueLength = 0
         containsBooleanOptions = False
-        for option in options.values() + positionalArguments:
+        allOptions = [value for value in options.values()] + positionalArguments
+        for option in allOptions:
             helpTextComponents = option.helpTextComponents
             usage.append(helpTextComponents['usage'])
             maxLongNameLength = max(maxLongNameLength, len(helpTextComponents['longName']))
@@ -442,7 +443,7 @@ class Cli(object):
         if purpose:
             helpTextLines.append(purpose)
         helpTextLines.append('where:')
-        for option in options.values() + positionalArguments:
+        for option in allOptions:
             helpTextComponents = option.helpTextComponents
             if option.hasShortName:
                 longName = helpTextComponents['longName'] + ', '
@@ -784,7 +785,7 @@ class _ParsedOptions(object):
                 optionInstance = _Option(self.__optionsClass, optionDescription, False)
             else:
                 optionInstance = _Option(self.__optionsClass, optionDescription)
-            setattr(self.__optionsInstance, methodName, new.instancemethod(_Option.__call__, optionInstance, _Option))
+            setattr(self.__optionsInstance, methodName, optionInstance.__call__)
 
     @property
     def optionsInstance(self):
