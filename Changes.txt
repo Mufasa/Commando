@@ -1,3 +1,7 @@
+Cli v3.0.0
+==========
+- Now compatible with Python 3
+
 Cli v2.1.1
 ==========
 - Added test to demonstrate options class can have non-annotated methods that can contain code that calls the overridden
